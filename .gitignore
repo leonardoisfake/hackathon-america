@@ -1,0 +1,52 @@
+
+# 1. Credenciales y archivos sensibles
+
+.env
+.env.*
+secrets.json
+secrets.yaml
+credentials.*
+*K-Pumas*
+*k-pumas*
+
+# 2. Datos crudos y procesados de statsbomb
+# Los datos en parquet, csv o json solo viven en local
+
+*.parquet
+*.csv
+*.tsv
+*.json
+*.xlsx
+*.xls
+data/
+datos/
+raw_data/
+processed_data/
+
+# 3. Archivos pesados y multimedia
+
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.zip
+*.tar.gz
+
+# 4. Entornos virtuales y caché
+
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+
+# 5. Archivos SO e IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
