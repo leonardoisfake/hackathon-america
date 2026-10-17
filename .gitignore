@@ -50,3 +50,12 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# --- Agregado desde A/datos ---
+# Material local que no va al repo
+archivo/
+.playwright-mcp/
+shot-*.png
+Docs_API/
+# Excepcion: esquema del contrato de datos (nombres y tipos de columna, sin datos)
+!docs/contrato_datos.csv
