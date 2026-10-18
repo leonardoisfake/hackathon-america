@@ -58,4 +58,4 @@ archivo/
 shot-*.png
 Docs_API/
 # Excepcion: esquema del contrato de datos (nombres y tipos de columna, sin datos)
-!docs/contrato_datos.csv
+!docs/contrato/contrato_datos.csv
