@@ -981,27 +981,27 @@ def comprobar_tablas(tablas):
 def decisiones(c):
     fuera = c["fuera"]
     dec = [
-        ("unidad", "Unidad de distancia", "Yardas (nativas de StatsBomb; 1 yarda = 0.9144 m)", "RESUELTA (usuario)", "-"),
-        ("destino_unico", "Destino unificado `end_x`, `end_y`, `end_z`", "Un solo juego para pass, carry, shot y goalkeeper, interpretado con `type_name`", "RESUELTA (usuario)", "-"),
-        ("dos_tablas_360", "360 en dos tablas", "`frames_360` (jugador visible) y `frames_360_evento` (área y conteos)", "RESUELTA (usuario)", "-"),
+        ("unidad", "Unidad de distancia", "Yardas (nativas de StatsBomb; 1 yarda = 0.9144 m)", "RESUELTA (Yordi)", "-"),
+        ("destino_unico", "Destino unificado `end_x`, `end_y`, `end_z`", "Un solo juego para pass, carry, shot y goalkeeper, interpretado con `type_name`", "RESUELTA (Yordi)", "-"),
+        ("dos_tablas_360", "360 en dos tablas", "`frames_360` (jugador visible) y `frames_360_evento` (área y conteos)", "RESUELTA (Yordi)", "-"),
         ("shot_freeze_frame", "Tabla extra `shot_freeze_frame`", "Se incluye; la produce `02_auxiliares.py`", "Lee", CONFIRMAR),
-        ("administrativos", "Eventos administrativos", "Se conservan en `eventos` con `es_administrativo = True`", "RESUELTA (usuario)", "-"),
+        ("administrativos", "Eventos administrativos", "Se conservan en `eventos` con `es_administrativo = True`", "RESUELTA (Yordi)", "-"),
         ("match_clock", "`match_clock` y `minute_bin`", "No van en la tabla limpia. Se calculan en la fase 3 (`scripts/03_contexto.py`, Yordi) con la ficha C1 (`match_clock` y `minute_bin`) de la especificación de métricas de Lee: `match_clock = match_second / 60` y `minute_bin` en ventanas de 15 minutos por periodo", "RESUELTA (Lee)", "-"),
         ("categories_json", "`defensive_responsibility.categories`", "Texto JSON en `eventos`; no se explota", "Lee", CONFIRMAR),
-        ("tarjetas_formaciones", "Tarjetas y formaciones de lineups", "Se cierra sin tablas nuevas: las formaciones salen de `tactics_formation` (eventos Starting XI y Tactical Shift) y las tarjetas de `foul_committed_card_*` y `bad_behaviour_card_*`, que ya están en `eventos`", "RESUELTA (usuario)", "-"),
-        ("posiciones_to", f"`posiciones.to` nulo ({c['pct_to_nulo']:.1f}%)", f"El nulo significa que el jugador siguió hasta el silbatazo final; no se imputa un minuto. Verificado con los {c['n_partidos']} partidos: {c['to_nulo']:,} de {c['n_tramos']:,} tramos tienen `to` nulo, todos con `end_reason` = Final Whistle y último tramo del jugador", "RESUELTA (usuario)", "-"),
-        ("columnas_ausentes", "Columnas que no aparecen siempre", f"Las banderas ausentes se crean con False y las stats ausentes, nulas. Las que no salen en ninguno de los {c['n_partidos']} partidos se quedan en False para que el esquema no cambie entre corridas; hoy son {len(fuera)} en `eventos`: {lista_md(fuera)}", "RESUELTA (usuario)", "-"),
+        ("tarjetas_formaciones", "Tarjetas y formaciones de lineups", "Se cierra sin tablas nuevas: las formaciones salen de `tactics_formation` (eventos Starting XI y Tactical Shift) y las tarjetas de `foul_committed_card_*` y `bad_behaviour_card_*`, que ya están en `eventos`", "RESUELTA (Yordi)", "-"),
+        ("posiciones_to", f"`posiciones.to` nulo ({c['pct_to_nulo']:.1f}%)", f"El nulo significa que el jugador siguió hasta el silbatazo final; no se imputa un minuto. Verificado con los {c['n_partidos']} partidos: {c['to_nulo']:,} de {c['n_tramos']:,} tramos tienen `to` nulo, todos con `end_reason` = Final Whistle y último tramo del jugador", "RESUELTA (Yordi)", "-"),
+        ("columnas_ausentes", "Columnas que no aparecen siempre", f"Las banderas ausentes se crean con False y las stats ausentes, nulas. Las que no salen en ninguno de los {c['n_partidos']} partidos se quedan en False para que el esquema no cambie entre corridas; hoy son {len(fuera)} en `eventos`: {lista_md(fuera)}", "RESUELTA (Yordi)", "-"),
         ("nulo_legitimo", "Banderas con nulo legítimo", "Solo `is_transition` e `is_controlled_possession` conservan el nulo; el resto va a False. La limpieza ya rellena `out` y `off_camera` con False; Lee confirma que así debe ser", "Lee", CONFIRMAR),
-        ("nombres_c12", "`category` o `string` en nombres", f"Los `*_name` de equipos y catálogos, más `rival_nombre`, son category; las personas ({lista_md(PERSONAS)}) son string aunque terminen en `_name`", "RESUELTA (usuario)", "-"),
+        ("nombres_c12", "`category` o `string` en nombres", f"Los `*_name` de equipos y catálogos, más `rival_nombre`, son category; las personas ({lista_md(PERSONAS)}) son string aunque terminen en `_name`", "RESUELTA (Yordi)", "-"),
         ("penales", "Penales (periodo 5)", "Se conservan con `period = 5`. Todas las fichas de la especificación de Lee los excluyen (exclusión global de su sección 1)", "RESUELTA (Lee)", "-"),
         ("sin_ubicacion", f"Eventos sin ubicación ({c['pct_sin_loc']:.1f}%)", "`x` e `y` nulos; se excluyen de los mapas, sin imputar", "Pablo", CONFIRMAR),
         ("perspectiva_360", "Perspectiva en `frames_360`", "Solo `es_equipo_analizado`; `x` e `y` quedan en la perspectiva del equipo del evento (sin `x_eq`/`y_eq`)", "Pablo", CONFIRMAR),
-        ("donde_parquet", "Dónde viven los parquet limpios", "`data/interim/` (limpias) y `data/processed/` (agregadas del lunes)", "RESUELTA (usuario)", "-"),
-        ("produce_posiciones", "Quién produce `posiciones`", "`02_limpieza.py` (Yordi), con acuerdo de Lee", "RESUELTA (usuario)", "-"),
-        ("filtros_calidad", "Partidos que no pasan los filtros de calidad (plan 7.1)", f"Se excluyen y se reportan en `data/interim/partidos_excluidos.csv`; ya no detienen la corrida. Los filtros son {texto_filtros()}. Todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga` traen solo los `match_id` de `partidos`. Las 4 tablas de `02_auxiliares.py` (`related_events`, `tactics_lineup`, `defensive_responsibility` y `shot_freeze_frame`) deben salir de `data/interim/eventos.parquet`, y no de los crudos, para traer solo los `match_id` de `partidos`", "RESUELTA (usuario)", "-"),
-        ("umbral_360", "Umbral de jugadores visibles del 360", "No se fija en la tabla limpia: `frames_360_evento` entrega `n_visibles_equipo` y `n_visibles_rival`, y cada métrica aplica su propio filtro. Lee define el umbral en la especificación de métricas; su valor provisional es actor visible y al menos 10 jugadores visibles, por calibrar con la distribución real de `visible_player_counts`. Esta decisión reemplaza el punto 7 de la sección 11 del plan", "RESUELTA (usuario)", "-"),
+        ("donde_parquet", "Dónde viven los parquet limpios", "`data/interim/` (limpias) y `data/processed/` (agregadas del lunes)", "RESUELTA (Yordi)", "-"),
+        ("produce_posiciones", "Quién produce `posiciones`", "`02_limpieza.py` (Yordi), con acuerdo de Lee", "RESUELTA (Yordi)", "-"),
+        ("filtros_calidad", "Partidos que no pasan los filtros de calidad (plan 7.1)", f"Se excluyen y se reportan en `data/interim/partidos_excluidos.csv`; ya no detienen la corrida. Los filtros son {texto_filtros()}. Todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga` traen solo los `match_id` de `partidos`. Las 4 tablas de `02_auxiliares.py` (`related_events`, `tactics_lineup`, `defensive_responsibility` y `shot_freeze_frame`) deben salir de `data/interim/eventos.parquet`, y no de los crudos, para traer solo los `match_id` de `partidos`", "RESUELTA (Yordi)", "-"),
+        ("umbral_360", "Umbral de jugadores visibles del 360", "No se fija en la tabla limpia: `frames_360_evento` entrega `n_visibles_equipo` y `n_visibles_rival`, y cada métrica aplica su propio filtro. Lee define el umbral en la especificación de métricas; su valor provisional es actor visible y al menos 10 jugadores visibles, por calibrar con la distribución real de `visible_player_counts`. Esta decisión reemplaza el punto 7 de la sección 11 del plan", "RESUELTA (Yordi)", "-"),
         ("managers", "Listas de managers", f"`managers` no se explota: queda resumido en {lista_md(c['entrenador_cols'])} de `partidos`", "Lee", CONFIRMAR),
-        ("conteo_360_vacio", "Conteos 360 sin `visible_player_counts`", f"`n_visibles_equipo` y `n_visibles_rival` quedan nulos cuando `visible_player_counts` viene vacío ({c['n_vpc_vacio']:,} frames, {c['pct_vpc_vacio']:.1f}%). El nulo quiere decir que no hay conteo y no equivale a cero", "RESUELTA (usuario)", "-"),
+        ("conteo_360_vacio", "Conteos 360 sin `visible_player_counts`", f"`n_visibles_equipo` y `n_visibles_rival` quedan nulos cuando `visible_player_counts` viene vacío ({c['n_vpc_vacio']:,} frames, {c['pct_vpc_vacio']:.1f}%). El nulo quiere decir que no hay conteo y no equivale a cero", "RESUELTA (Yordi)", "-"),
     ]
     # los numeros C ya publicados no se mueven: dec va en el orden de PUBLICADAS y los numeros son 1..n
     if list(PUBLICADAS.values()) != list(range(1, len(PUBLICADAS) + 1)):
@@ -1345,7 +1345,7 @@ def md_readme(tablas, notas, produce, c, decs):
         md.append(f"| [`{t}`]({t}.md) | {len(tablas[t])} | {c['filas_tabla'][t]:,} | {produce[t]} | {notas[t]} |")
     md.append("")
     md.append("## Decisiones\n")
-    md.append("Las resueltas llevan `RESUELTA (usuario)` o `RESUELTA (Lee)`. Las demás tienen un default vigente, un responsable y una fecha límite.\n")
+    md.append("Las resueltas llevan `RESUELTA (Yordi)` o `RESUELTA (Lee)`. Las demás tienen un default vigente, un responsable y una fecha límite.\n")
     md.append(ENC_DEC)
     md.append("|---|---|---|---|---|")
     for d in decs:

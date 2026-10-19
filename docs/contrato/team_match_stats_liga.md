@@ -23,8 +23,8 @@ Decisiones que la afectan:
 
 | # | decisión | default vigente | quién decide | fecha límite |
 |---|---|---|---|---|
-| C10 | Columnas que no aparecen siempre | Las banderas ausentes se crean con False y las stats ausentes, nulas. Las que no salen en ninguno de los 91 partidos se quedan en False para que el esquema no cambie entre corridas; hoy son 8 en `eventos`: `goalkeeper_lost_out`, `goalkeeper_success_out`, `half_end_early_video_end`, `half_end_match_suspended`, `half_start_late_video_start`, `pass_backheel`, `offside_advantage` y `shot_kick_off` | RESUELTA (usuario) | resuelta |
-| C12 | `category` o `string` en nombres | Los `*_name` de equipos y catálogos, más `rival_nombre`, son category; las personas (`referee_name`, `player_name`, `pass_recipient_name`, `substitution_replacement_name`, `counterpart_name`, `entrenador_rival` y `player_nickname`) son string aunque terminen en `_name` | RESUELTA (usuario) | resuelta |
+| C10 | Columnas que no aparecen siempre | Las banderas ausentes se crean con False y las stats ausentes, nulas. Las que no salen en ninguno de los 91 partidos se quedan en False para que el esquema no cambie entre corridas; hoy son 8 en `eventos`: `goalkeeper_lost_out`, `goalkeeper_success_out`, `half_end_early_video_end`, `half_end_match_suspended`, `half_start_late_video_start`, `pass_backheel`, `offside_advantage` y `shot_kick_off` | RESUELTA (Yordi) | resuelta |
+| C12 | `category` o `string` en nombres | Los `*_name` de equipos y catálogos, más `rival_nombre`, son category; las personas (`referee_name`, `player_name`, `pass_recipient_name`, `substitution_replacement_name`, `counterpart_name`, `entrenador_rival` y `player_nickname`) son string aunque terminen en `_name` | RESUELTA (Yordi) | resuelta |
 
 ## Columnas (212)
 

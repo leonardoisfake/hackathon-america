@@ -24,9 +24,9 @@ Decisiones que la afectan:
 
 | # | decisión | default vigente | quién decide | fecha límite |
 |---|---|---|---|---|
-| C9 | `posiciones.to` nulo (47.6%) | El nulo significa que el jugador siguió hasta el silbatazo final; no se imputa un minuto. Verificado con los 91 partidos: 1,976 de 4,150 tramos tienen `to` nulo, todos con `end_reason` = Final Whistle y último tramo del jugador | RESUELTA (usuario) | resuelta |
-| C17 | Quién produce `posiciones` | `02_limpieza.py` (Yordi), con acuerdo de Lee | RESUELTA (usuario) | resuelta |
-| C18 | Partidos que no pasan los filtros de calidad (plan 7.1) | Se excluyen y se reportan en `data/interim/partidos_excluidos.csv`; ya no detienen la corrida. Los filtros son `play_status` = Normal, `match_status` = available, `collection_status` = Complete y `match_status_360` = available. Todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga` traen solo los `match_id` de `partidos`. Las 4 tablas de `02_auxiliares.py` (`related_events`, `tactics_lineup`, `defensive_responsibility` y `shot_freeze_frame`) deben salir de `data/interim/eventos.parquet`, y no de los crudos, para traer solo los `match_id` de `partidos` | RESUELTA (usuario) | resuelta |
+| C9 | `posiciones.to` nulo (47.6%) | El nulo significa que el jugador siguió hasta el silbatazo final; no se imputa un minuto. Verificado con los 91 partidos: 1,976 de 4,150 tramos tienen `to` nulo, todos con `end_reason` = Final Whistle y último tramo del jugador | RESUELTA (Yordi) | resuelta |
+| C17 | Quién produce `posiciones` | `02_limpieza.py` (Yordi), con acuerdo de Lee | RESUELTA (Yordi) | resuelta |
+| C18 | Partidos que no pasan los filtros de calidad (plan 7.1) | Se excluyen y se reportan en `data/interim/partidos_excluidos.csv`; ya no detienen la corrida. Los filtros son `play_status` = Normal, `match_status` = available, `collection_status` = Complete y `match_status_360` = available. Todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga` traen solo los `match_id` de `partidos`. Las 4 tablas de `02_auxiliares.py` (`related_events`, `tactics_lineup`, `defensive_responsibility` y `shot_freeze_frame`) deben salir de `data/interim/eventos.parquet`, y no de los crudos, para traer solo los `match_id` de `partidos` | RESUELTA (Yordi) | resuelta |
 
 ## Columnas (14)
 
