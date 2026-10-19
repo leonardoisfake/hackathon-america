@@ -16,7 +16,7 @@ Reglas principales:
 
 - Se descartan `attendance`, `home_team_group` y `away_team_group` (0% de datos). Las listas de managers no se explotan: quedan resumidas en `entrenador_id`, `entrenador_rival`, `entrenador_rival_id`, `rival_coentrenador` y `coentrenador` (C20).
 - `torneo` sale de `match_date` (julio a diciembre = Apertura, enero a junio = Clausura). `fase` vale `regular` o `liguilla`; `es_play_in` marca el stage id 2 y `es_final` los dos partidos de la final.
-- Los partidos que no pasan los filtros de calidad (plan 7.1) se excluyen y no detienen la corrida, así que la tabla limpia puede tener menos de 91 filas. La limpieza los anota en `data/interim/partidos_excluidos.csv` (con `--solo-partido`, en `data/interim/muestra/`), con las columnas `match_id`, `campo` y `valor` y una fila por partido y por filtro que falla. Los filtros son `play_status` = Normal, `match_status` = available, `collection_status` = Complete y `match_status_360` = available.
+- Los partidos que no pasan los filtros de calidad (plan 7.1) se excluyen y no detienen la corrida, así que la tabla limpia puede tener menos de 91 filas. La limpieza los anota en `data/interim/partidos_excluidos.csv`, con las columnas `match_id`, `campo` y `valor` y una fila por partido y por filtro que falla. Los filtros son `play_status` = Normal, `match_status` = available, `collection_status` = Complete y `match_status_360` = available. Con `--solo-partido` y un partido excluido, solo se imprime el motivo y se sale con código 2, sin escribir nada.
 - Los errores de video (NoVidError, IncVidError y PoorVidError) son valores de `collection_status`, así que el filtro `collection_status = Complete` ya los deja fuera.
 
 Decisiones que la afectan:

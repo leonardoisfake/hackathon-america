@@ -219,6 +219,8 @@ HISTORIAL = [
                  'Resueltas por Lee en su especificación de métricas: C6 (`match_clock` y `minute_bin` no van en la '
                  'tabla limpia; se calculan en la fase 3, `scripts/03_contexto.py`) y C13 (los penales se conservan '
                  'con `period = 5` y todas las fichas los excluyen).',
+                 'Resueltas por Pablo: C14 (los eventos con `x`/`y` nulos no entran a las gráficas) y C15 (en '
+                 '`frames_360` usa `es_equipo_analizado` y no toma los nulos).',
                  'Decisiones nuevas: C17 (`posiciones` la produce `02_limpieza.py`), C18 (los partidos que no pasan '
                  'los filtros del plan 7.1 se excluyen de todas las tablas de `02_limpieza.py` salvo '
                  '`team_match_stats_liga`, y se reportan), C19 (el umbral de jugadores visibles lo aplica cada métrica '
@@ -227,8 +229,8 @@ HISTORIAL = [
                  'nulos; resuelta).',
                  'C10 se amplía: las 8 banderas que no salen en ningún partido se conservan en False. C11 anota que '
                  '`out` y `off_camera` ya se rellenan con False. C19 reemplaza el punto 7 de la sección 11 del plan.',
-                 'Siguen abiertas con su default: C4, C7, C11, C20 (Lee) y C14, C15 (Pablo), vigente por defecto; '
-                 'confirmar antes del lun 19. Las decisiones resueltas pasan de 3 a 15.',
+                 'Siguen abiertas con su default: C4, C7, C11 y C20 (Lee), vigente por defecto; '
+                 'confirmar antes del lun 19. Las decisiones resueltas pasan de 3 a 17.',
                  'Correcciones de texto: el orden es siempre (`match_id`, `index`) y `match_second` sirve para agrupar '
                  'dentro de (`match_id`, `period`); `timestamp` queda verificado; "Escala 0 a 1" solo aparece en las '
                  'proporciones conocidas por nombre cuyo rango observado cabe en [0, 1], y `directness` ya no la '
@@ -241,7 +243,9 @@ HISTORIAL = [
                  'C18 lista los cuatro filtros. `eventos` aclara que también trae `es_play_in` y `es_final` desde '
                  '`partidos`.',
                  '`cambios.md` sale de una lista fija de versiones publicadas en el script, así que regenerar ya no '
-                 'borra la historia. El README explica cómo se publica una versión nueva.'],
+                 'borra la historia. El README explica cómo se publica una versión nueva.',
+                 'Se documentan las salidas de control de `02_limpieza.py` y se precisan las reglas de '
+                 '`pass_completed`, `receipt_ok` y `n_visibles_*`.'],
      'tipos_titulo': 'Tipos que cambian, calculados contra el `contrato_datos.csv` de v0.1:',
      'tipos': [('partidos', 'match_date', 'datetime64[ns]', 'datetime64[us]'),
                ('partidos', 'last_updated', 'datetime64[ns]', 'datetime64[us]'),
@@ -673,8 +677,8 @@ def filas_eventos(f, c):
     nota_admin = (f" {lista_md(sin_filas)} no tiene filas en los {n_partidos} partidos; está en la lista porque la especificación de Lee lo cuenta como administrativo."
                   if sin_filas else "")
     filas += [
-        fila("pass_completed", "boolean", "Pase completado (True) o fallido (False); nulo si el evento no es Pass.", "`pass.outcome.name`", "Resultado vacío = éxito: True si type_name = Pass y pass_outcome_name es nulo."),
-        fila("receipt_ok", "boolean", "Recepción buena (True) o mala (False); nulo si el evento no es Ball Receipt*.", "`ball_receipt.outcome.name`", "Resultado vacío = éxito: True si type_name = 'Ball Receipt*' y el resultado es nulo."),
+        fila("pass_completed", "boolean", "Pase completado (True) o fallido (False); nulo si el evento no es Pass.", "`pass.outcome.name`", "Resultado vacío = éxito: True si type_name = Pass y pass_outcome_name es nulo; False si trae resultado. Nulo cuando type_name no es Pass."),
+        fila("receipt_ok", "boolean", "Recepción buena (True) o mala (False); nulo si el evento no es Ball Receipt*.", "`ball_receipt.outcome.name`", "Resultado vacío = éxito: True si type_name = 'Ball Receipt*' y el resultado es nulo; False si trae resultado. Nulo cuando type_name no es 'Ball Receipt*'."),
         fila("match_second", "Int64", "Segundo del partido desde el inicio.", "`minute`, `second`", "minute * 60 + second. NO es único entre periodos (el 2o tiempo arranca en 2700 pero el 1o puede pasar de 2700): ordenar siempre por (`match_id`, `index`); `match_second` sirve para agrupar por tiempo dentro de (`match_id`, `period`)."),
         fila("es_administrativo", "boolean", "Evento que no entra al análisis táctico.", "`type.name`", f"True para {', '.join(ADMINISTRATIVOS[:-1])} y {ADMINISTRATIVOS[-1]} (`contrato.ADMINISTRATIVOS`); se conservan en la tabla.{nota_admin}"),
         fila("torneo", "category", DESC_TORNEO, "`partidos.torneo`", f"Unión con partidos por match_id; {REGLA_TORNEO}."),
@@ -743,21 +747,21 @@ def filas_frames_360():
         fila("keeper", "boolean", "El jugador visible es portero.", "`freeze_frame[].keeper`", "Sin cambios."),
         fila("x", "float64", "Coordenada x del jugador visible (yardas, perspectiva del equipo que ejecuta el evento).", "`freeze_frame[].location`", "Se separa [x, y]."),
         fila("y", "float64", "Coordenada y del jugador visible (yardas, perspectiva del equipo que ejecuta el evento).", "`freeze_frame[].location`", "Se separa [x, y]."),
-        fila("es_equipo_analizado", "boolean", "El jugador visible pertenece al equipo analizado.", "`freeze_frame[].teammate`, `eventos.team_id`, `partidos.equipo_id`", "Si el equipo del evento es el analizado: teammate; si no: not teammate. Nulo si el evento no está en `eventos`."),
+        fila("es_equipo_analizado", "boolean", "El jugador visible pertenece al equipo analizado.", "`freeze_frame[].teammate`, `eventos.team_id`, `partidos.equipo_id`", "Si el equipo del evento es el analizado: teammate; si no: not teammate. Que el evento no esté en `eventos` no ocurre en las tablas escritas: un frame sin su evento es un huérfano y detiene la corrida."),
     ]
 
 
 def filas_frames_360_evento(f, c):
     D = lambda col: desc_corta(f["doc"], "frames_360", col)
-    nulo_conteo = (f" Nulo si `visible_player_counts` viene vacío ({c['n_vpc_vacio']:,} frames, {c['pct_vpc_vacio']:.1f}%) o si el evento "
-                   "no está en `eventos`: significa sin conteo, no cero.")
+    nulo_conteo = (f" Nulo si `visible_player_counts` viene vacío ({c['n_vpc_vacio']:,} frames, {c['pct_vpc_vacio']:.1f}%). Que el evento no esté en `eventos` "
+                   "no ocurre en las tablas escritas: un frame sin su evento es un huérfano y detiene la corrida. El nulo significa sin conteo, no cero.")
     return [
         fila("match_id", "Int64", "Partido.", "match_id", "Llave."),
         fila("event_uuid", "string", "Evento (unión con `eventos.id`). Llave junto con match_id.", "`event_uuid`", "strip."),
         fila("visible_area", "string", D("visible_area"), "`visible_area`", "Polígono [x1, y1, x2, y2, ...] guardado como texto JSON."),
         fila("visible_area_yd2", "float64", "Área del polígono visible en yardas cuadradas.", "`visible_area`", "Fórmula del polígono (shoelace) sobre los puntos."),
-        fila("n_visibles_equipo", "Int64", "Jugadores visibles del equipo que ejecuta el evento.", "`visible_player_counts[].count`", "count del team_id igual al `eventos.team_id` del evento. Es el equipo del evento (el actor), no el equipo analizado." + nulo_conteo),
-        fila("n_visibles_rival", "Int64", "Jugadores visibles del equipo rival.", "`visible_player_counts[].count`", "count del team_id distinto al del evento; vale 0 si solo aparece el equipo del evento." + nulo_conteo),
+        fila("n_visibles_equipo", "Int64", "Jugadores visibles del equipo que ejecuta el evento.", "`visible_player_counts[].count`", "count del `team_id` igual al `eventos.team_id` del evento (unión por `match_id` y `event_uuid`); vale 0 si ese equipo no aparece en `visible_player_counts`. Es el equipo del evento (el actor), no el equipo analizado." + nulo_conteo),
+        fila("n_visibles_rival", "Int64", "Jugadores visibles del equipo rival.", "`visible_player_counts[].count`", "count del otro equipo del partido (`home_team_id`/`away_team_id` de `partidos`); vale 0 si ese equipo no aparece en `visible_player_counts` y queda nulo si el equipo del evento no es ninguno de los dos." + nulo_conteo),
         fila("line_breaking_pass", "boolean", D("line_breaking_pass"), "`line_breaking_pass`", "Ausente = False.", relleno="False"),
         fila("ball_receipt_in_space", "boolean", D("ball_receipt_in_space"), "`ball_receipt_in_space`", "Ausente = False.", relleno="False"),
         fila("num_defenders_on_goal_side_of_actor", "float64", D("num_defenders_on_goal_side_of_actor"), "`num_defenders_on_goal_side_of_actor`", "Nulo legítimo; no imputar."),
@@ -994,8 +998,8 @@ def decisiones(c):
         ("nulo_legitimo", "Banderas con nulo legítimo", "Solo `is_transition` e `is_controlled_possession` conservan el nulo; el resto va a False. La limpieza ya rellena `out` y `off_camera` con False; Lee confirma que así debe ser", "Lee", CONFIRMAR),
         ("nombres_c12", "`category` o `string` en nombres", f"Los `*_name` de equipos y catálogos, más `rival_nombre`, son category; las personas ({lista_md(PERSONAS)}) son string aunque terminen en `_name`", "RESUELTA (Yordi)", "-"),
         ("penales", "Penales (periodo 5)", "Se conservan con `period = 5`. Todas las fichas de la especificación de Lee los excluyen (exclusión global de su sección 1)", "RESUELTA (Lee)", "-"),
-        ("sin_ubicacion", f"Eventos sin ubicación ({c['pct_sin_loc']:.1f}%)", "`x` e `y` nulos; se excluyen de los mapas, sin imputar", "Pablo", CONFIRMAR),
-        ("perspectiva_360", "Perspectiva en `frames_360`", "Solo `es_equipo_analizado`; `x` e `y` quedan en la perspectiva del equipo del evento (sin `x_eq`/`y_eq`)", "Pablo", CONFIRMAR),
+        ("sin_ubicacion", f"Eventos sin ubicación ({c['pct_sin_loc']:.1f}%)", "`x` e `y` nulos; se excluyen de los mapas, sin imputar", "RESUELTA (Pablo)", "-"),
+        ("perspectiva_360", "Perspectiva en `frames_360`", "Solo `es_equipo_analizado`; `x` e `y` quedan en la perspectiva del equipo del evento (sin `x_eq`/`y_eq`)", "RESUELTA (Pablo)", "-"),
         ("donde_parquet", "Dónde viven los parquet limpios", "`data/interim/` (limpias) y `data/processed/` (agregadas del lunes)", "RESUELTA (Yordi)", "-"),
         ("produce_posiciones", "Quién produce `posiciones`", "`02_limpieza.py` (Yordi), con acuerdo de Lee", "RESUELTA (Yordi)", "-"),
         ("filtros_calidad", "Partidos que no pasan los filtros de calidad (plan 7.1)", f"Se excluyen y se reportan en `data/interim/partidos_excluidos.csv`; ya no detienen la corrida. Los filtros son {texto_filtros()}. Todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga` traen solo los `match_id` de `partidos`. Las 4 tablas de `02_auxiliares.py` (`related_events`, `tactics_lineup`, `defensive_responsibility` y `shot_freeze_frame`) deben salir de `data/interim/eventos.parquet`, y no de los crudos, para traer solo los `match_id` de `partidos`", "RESUELTA (Yordi)", "-"),
@@ -1026,7 +1030,7 @@ def resumenes(c):
             reglas=[
                 f"Se descartan `attendance`, `home_team_group` y `away_team_group` (0% de datos). Las listas de managers no se explotan: quedan resumidas en {lista_md(c['entrenador_cols'])} ({C('managers')}).",
                 f"`torneo` sale de `match_date` ({REGLA_TORNEO}). `fase` vale `regular` o `liguilla`; `es_play_in` marca el stage id {STAGE_PLAY_IN} y `es_final` los dos partidos de la final.",
-                f"Los partidos que no pasan los filtros de calidad (plan 7.1) se excluyen y no detienen la corrida, así que la tabla limpia puede tener menos de {c['n_filas_partidos']} filas. La limpieza los anota en `data/interim/partidos_excluidos.csv` (con `--solo-partido`, en `data/interim/muestra/`), con las columnas `match_id`, `campo` y `valor` y una fila por partido y por filtro que falla. Los filtros son {texto_filtros()}.",
+                f"Los partidos que no pasan los filtros de calidad (plan 7.1) se excluyen y no detienen la corrida, así que la tabla limpia puede tener menos de {c['n_filas_partidos']} filas. La limpieza los anota en `data/interim/partidos_excluidos.csv`, con las columnas `match_id`, `campo` y `valor` y una fila por partido y por filtro que falla. Los filtros son {texto_filtros()}. Con `--solo-partido` y un partido excluido, solo se imprime el motivo y se sale con código 2, sin escribir nada.",
                 f"Los errores de video ({', '.join(VIDEO[:-1])} y {VIDEO[-1]}) son valores de `collection_status`, así que el filtro `collection_status = Complete` ya los deja fuera.",
             ],
             filas_nota=" en los parquet crudos, antes de excluir partidos",
@@ -1053,8 +1057,9 @@ def resumenes(c):
             reglas=[
                 "`freeze_frame` se explota con un contador `jugador_idx` desde 0; el freeze frame no trae ids de jugador.",
                 "Solo aparecen los jugadores que ve la cámara.",
-                "`x` e `y` quedan en la perspectiva del equipo que ejecuta el evento; `es_equipo_analizado` dice si el jugador visible es del equipo analizado y queda nulo si el evento no está en `eventos`.",
-                "`event_uuid` se une con `eventos.id`.",
+                "`x` e `y` quedan en la perspectiva del equipo que ejecuta el evento; `es_equipo_analizado` dice si el jugador visible es del equipo analizado que el evento no esté en `eventos` no ocurre en las tablas escritas: un frame sin su evento es un huérfano y detiene la corrida.",
+                "`event_uuid` se une con `eventos.id` dentro del partido, por (`match_id`, `event_uuid`).",
+                "Las filas van ordenadas por la llave (`match_id`, `event_uuid`, `jugador_idx`). `event_uuid` es un UUID, así que ese orden no es cronológico: para seguir el partido, une con `eventos` por (`match_id`, `event_uuid` = `id`) y ordena por `index`.",
             ],
             dec=["unidad", "dos_tablas_360", "sin_ubicacion", "perspectiva_360"]),
         "frames_360_evento": dict(
@@ -1063,7 +1068,8 @@ def resumenes(c):
             fuente="Endpoint `frames_360` (`data/raw/parquet/frames_360.parquet`), columnas de nivel evento.",
             reglas=[
                 "`visible_area` queda como texto JSON y `visible_area_yd2` es su área en yardas cuadradas (fórmula del polígono).",
-                "`n_visibles_equipo` y `n_visibles_rival` salen de `visible_player_counts`, según el `team_id` del evento. \"Equipo\" es el equipo del evento (el actor), no el equipo analizado; `n_visibles_rival` vale 0 si solo aparece ese equipo.",
+                "`n_visibles_equipo` cuenta al equipo del evento (el actor, no el equipo analizado) y `n_visibles_rival` al otro equipo del partido, según `home_team_id` y `away_team_id` de `partidos`. Los dos salen de `visible_player_counts` y valen 0 si su equipo no aparece; `n_visibles_rival` queda nulo si el equipo del evento no es ni el local ni el visitante.",
+                "Las filas van ordenadas por la llave (`match_id`, `event_uuid`). `event_uuid` es un UUID, así que ese orden no es cronológico: para seguir el partido, une con `eventos` por (`match_id`, `event_uuid` = `id`) y ordena por `index`.",
                 f"Si `visible_player_counts` viene vacío ({c['n_vpc_vacio']:,} frames, {c['pct_vpc_vacio']:.1f}%), los dos conteos quedan nulos. El nulo quiere decir que no hay conteo y no equivale a cero ({C('conteo_360_vacio')}).",
                 f"El umbral de jugadores visibles no se fija en esta tabla. Cada métrica aplica su propio filtro con `n_visibles_equipo` y `n_visibles_rival`, y Lee lo define en la especificación de métricas. Su valor provisional es actor visible y al menos 10 jugadores visibles, por calibrar con la distribución real ({C('umbral_360')}).",
                 "`line_breaking_pass` y `ball_receipt_in_space` ausentes valen False; el resto de las métricas conserva el nulo.",
@@ -1117,6 +1123,7 @@ def resumenes(c):
                 "Mismas columnas que `team_match_stats`, más `torneo`, `fase`, `es_play_in`, `es_final`, `match_date` y `match_week`.",
                 f"No se le aplica la exclusión de partidos de {C('filtros_calidad')} ni el filtro de 360 (`match_status_360`): la línea base solo usa {FILTRO_LIGA}.",
                 "`es_final` se calcula sobre toda la liga, no solo sobre los partidos de América.",
+                "Con `--solo-partido` se recorta a las filas de ese partido.",
                 "Se descarta `account_id`.",
             ],
             dec=["columnas_ausentes", "nombres_c12"]),
@@ -1337,6 +1344,33 @@ def md_readme(tablas, notas, produce, c, decs):
     ]:
         md.append(f"- {t}")
     md.append("")
+    md.append("### Salidas de control de `02_limpieza.py`\n")
+    md.append("Además de los parquet, `02_limpieza.py` escribe tres CSV de control en la misma carpeta (`data/interim/`, o `data/interim/muestra/` con `--solo-partido`):\n")
+    for t in [
+        "`partidos_excluidos.csv`: `match_id`, `campo` y `valor`, con una fila por partido y por filtro de 7.1 que falla. Los partidos que no pasan esos filtros se excluyen de todas las tablas salvo `team_match_stats_liga`, se reportan aquí y no detienen la corrida.",
+        f"`calidad_limpieza.csv`: una fila por tabla con `tabla`, `filas_crudas`, `filas`, `filas_descartadas`, `columnas`, `llave`, `llaves_duplicadas`, `padre`, `huerfanos`, `huerfanos_por_padre` y `columnas_creadas_vacias`. En `partidos`, `filas_crudas` cuenta todas las filas leídas; en las tablas hijas cuenta solo las filas de los partidos que pasaron 7.1 y, en las que salen de explotar una lista, las filas ya explotadas. Las exclusiones de C18 ({C('filtros_calidad')}) se ven solo en `partidos`, así que `filas_descartadas` en las hijas es 0 por construcción. `padre` y `huerfanos_por_padre` listan las tablas padre en el mismo orden; `huerfanos` cuenta las filas que faltan en al menos uno de sus padres.",
+        f"`cobertura_360_por_partido.csv`: una fila por partido con `match_id`, `eventos`, `eventos_con_frame`, `pct_con_frame`, `eventos_tacticos`, `pct_tacticos_con_frame`, `eventos_equipo_analizado`, `pct_equipo_con_frame`, `frames_sin_conteo` y `frames_umbral_provisional`. Los tácticos son los eventos con `es_administrativo = False`, y los del equipo analizado, los que tienen `es_equipo_analizado = True`. `frames_umbral_provisional` cuenta los frames que cumplen la regla provisional de Lee (actor visible y al menos 10 jugadores visibles, {C('umbral_360')}); es solo informativo y ninguna tabla se filtra con él.",
+    ]:
+        md.append(f"- {t}")
+    md.append("")
+    md.append("La corrida se detiene con código 1, sin escribir nada, cuando:\n")
+    for t in [
+        "alguna tabla no pasa `contrato.validar()`;",
+        "a un partido le falta cobertura: debe tener filas en `eventos`, `frames_360`, `frames_360_evento` y `player_match_stats`; `home_team_id`, `away_team_id` y `equipo_id` no nulos; `equipo_id` igual al local o al visitante; exactamente el local y el visitante en `alineaciones` y `team_match_stats`; y al menos un evento con `es_equipo_analizado` no nulo. Un hueco detiene toda la corrida y no excluye el partido;",
+        "alguna tabla tiene llaves duplicadas o huérfanos;",
+        "ningún partido pasa los filtros de calidad;",
+        "falta una columna cruda que el contrato no marca con `puede_faltar`;",
+        "una conversión de tipo deja nulo un valor que no lo era;",
+        "un evento tiene más de un destino no nulo entre `pass`, `carry`, `shot` y `goalkeeper`;",
+        "llega un valor de tipo inesperado: un booleano donde va un número, una fecha numérica o con zona horaria, o un JSON inválido o de otro tipo;",
+        "al unir con 360 hay eventos repetidos en (`match_id`, `id`);",
+        "`match_id` aparece repetido en `partidos`;",
+        "falla la preparación o la escritura de la carpeta temporal;",
+        "algún archivo de destino está bloqueado (por ejemplo, abierto en Excel).",
+    ]:
+        md.append(f"- {t}")
+    md.append("")
+    md.append("Si el reemplazo falla a medias después de esa revisión, también sale con 1, y el mensaje dice qué archivos ya se reemplazaron y en qué carpeta temporal quedaron los que faltan. Con `--solo-partido`, si el partido pedido no está en `partidos.parquet` o no pasa los filtros, solo imprime el motivo y sale con código 2, sin escribir nada.\n")
     md.append("## Resumen de tablas\n")
     md.append("Las filas se cuentan sobre los parquet crudos. Cada tabla tiene su propio archivo con el resumen y todas sus columnas.\n")
     md.append("| tabla | columnas | filas | produce | grano |")
@@ -1345,7 +1379,7 @@ def md_readme(tablas, notas, produce, c, decs):
         md.append(f"| [`{t}`]({t}.md) | {len(tablas[t])} | {c['filas_tabla'][t]:,} | {produce[t]} | {notas[t]} |")
     md.append("")
     md.append("## Decisiones\n")
-    md.append("Las resueltas llevan `RESUELTA (Yordi)` o `RESUELTA (Lee)`. Las demás tienen un default vigente, un responsable y una fecha límite.\n")
+    md.append("Las resueltas llevan `RESUELTA (Yordi)`, `RESUELTA (Lee)` o `RESUELTA (Pablo)`. Las demás tienen un default vigente, un responsable y una fecha límite.\n")
     md.append(ENC_DEC)
     md.append("|---|---|---|---|---|")
     for d in decs:

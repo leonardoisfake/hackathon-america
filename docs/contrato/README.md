@@ -41,6 +41,31 @@ Todo lo de esta carpeta sale de `python scripts/gen_contrato.py`; no se edita a 
 - Las columnas documentadas que faltan en un partido se crean igual (False o nulo) para que el esquema no cambie entre corridas. `puede_faltar = True` marca solo las que no existen en el parquet crudo de ninguno de los 91 partidos, y su regla lo dice.
 - **Alcance (C18).** Los partidos que no pasan los filtros de calidad (plan 7.1) los anota la limpieza en `data/interim/partidos_excluidos.csv`, con las columnas `match_id`, `campo` y `valor` y una fila por partido y por filtro que falla. Los valores posibles de `campo` son los cuatro filtros: `play_status` = Normal, `match_status` = available, `collection_status` = Complete y `match_status_360` = available. Todas las tablas de `02_limpieza.py`, salvo `team_match_stats_liga`, traen solo los `match_id` que quedan en `partidos`; las 4 de `02_auxiliares.py` deben salir de `data/interim/eventos.parquet`, y no de los crudos, para cumplirlo.
 
+### Salidas de control de `02_limpieza.py`
+
+Además de los parquet, `02_limpieza.py` escribe tres CSV de control en la misma carpeta (`data/interim/`, o `data/interim/muestra/` con `--solo-partido`):
+
+- `partidos_excluidos.csv`: `match_id`, `campo` y `valor`, con una fila por partido y por filtro de 7.1 que falla. Los partidos que no pasan esos filtros se excluyen de todas las tablas salvo `team_match_stats_liga`, se reportan aquí y no detienen la corrida.
+- `calidad_limpieza.csv`: una fila por tabla con `tabla`, `filas_crudas`, `filas`, `filas_descartadas`, `columnas`, `llave`, `llaves_duplicadas`, `padre`, `huerfanos`, `huerfanos_por_padre` y `columnas_creadas_vacias`. En `partidos`, `filas_crudas` cuenta todas las filas leídas; en las tablas hijas cuenta solo las filas de los partidos que pasaron 7.1 y, en las que salen de explotar una lista, las filas ya explotadas. Las exclusiones de C18 (C18) se ven solo en `partidos`, así que `filas_descartadas` en las hijas es 0 por construcción. `padre` y `huerfanos_por_padre` listan las tablas padre en el mismo orden; `huerfanos` cuenta las filas que faltan en al menos uno de sus padres.
+- `cobertura_360_por_partido.csv`: una fila por partido con `match_id`, `eventos`, `eventos_con_frame`, `pct_con_frame`, `eventos_tacticos`, `pct_tacticos_con_frame`, `eventos_equipo_analizado`, `pct_equipo_con_frame`, `frames_sin_conteo` y `frames_umbral_provisional`. Los tácticos son los eventos con `es_administrativo = False`, y los del equipo analizado, los que tienen `es_equipo_analizado = True`. `frames_umbral_provisional` cuenta los frames que cumplen la regla provisional de Lee (actor visible y al menos 10 jugadores visibles, C19); es solo informativo y ninguna tabla se filtra con él.
+
+La corrida se detiene con código 1, sin escribir nada, cuando:
+
+- alguna tabla no pasa `contrato.validar()`;
+- a un partido le falta cobertura: debe tener filas en `eventos`, `frames_360`, `frames_360_evento` y `player_match_stats`; `home_team_id`, `away_team_id` y `equipo_id` no nulos; `equipo_id` igual al local o al visitante; exactamente el local y el visitante en `alineaciones` y `team_match_stats`; y al menos un evento con `es_equipo_analizado` no nulo. Un hueco detiene toda la corrida y no excluye el partido;
+- alguna tabla tiene llaves duplicadas o huérfanos;
+- ningún partido pasa los filtros de calidad;
+- falta una columna cruda que el contrato no marca con `puede_faltar`;
+- una conversión de tipo deja nulo un valor que no lo era;
+- un evento tiene más de un destino no nulo entre `pass`, `carry`, `shot` y `goalkeeper`;
+- llega un valor de tipo inesperado: un booleano donde va un número, una fecha numérica o con zona horaria, o un JSON inválido o de otro tipo;
+- al unir con 360 hay eventos repetidos en (`match_id`, `id`);
+- `match_id` aparece repetido en `partidos`;
+- falla la preparación o la escritura de la carpeta temporal;
+- algún archivo de destino está bloqueado (por ejemplo, abierto en Excel).
+
+Si el reemplazo falla a medias después de esa revisión, también sale con 1, y el mensaje dice qué archivos ya se reemplazaron y en qué carpeta temporal quedaron los que faltan. Con `--solo-partido`, si el partido pedido no está en `partidos.parquet` o no pasa los filtros, solo imprime el motivo y sale con código 2, sin escribir nada.
+
 ## Resumen de tablas
 
 Las filas se cuentan sobre los parquet crudos. Cada tabla tiene su propio archivo con el resumen y todas sus columnas.
@@ -63,7 +88,7 @@ Las filas se cuentan sobre los parquet crudos. Cada tabla tiene su propio archiv
 
 ## Decisiones
 
-Las resueltas llevan `RESUELTA (Yordi)` o `RESUELTA (Lee)`. Las demás tienen un default vigente, un responsable y una fecha límite.
+Las resueltas llevan `RESUELTA (Yordi)`, `RESUELTA (Lee)` o `RESUELTA (Pablo)`. Las demás tienen un default vigente, un responsable y una fecha límite.
 
 | # | decisión | default vigente | quién decide | fecha límite |
 |---|---|---|---|---|
@@ -80,8 +105,8 @@ Las resueltas llevan `RESUELTA (Yordi)` o `RESUELTA (Lee)`. Las demás tienen un
 | C11 | Banderas con nulo legítimo | Solo `is_transition` e `is_controlled_possession` conservan el nulo; el resto va a False. La limpieza ya rellena `out` y `off_camera` con False; Lee confirma que así debe ser | Lee | vigente por defecto; confirmar antes del lun 19 |
 | C12 | `category` o `string` en nombres | Los `*_name` de equipos y catálogos, más `rival_nombre`, son category; las personas (`referee_name`, `player_name`, `pass_recipient_name`, `substitution_replacement_name`, `counterpart_name`, `entrenador_rival` y `player_nickname`) son string aunque terminen en `_name` | RESUELTA (Yordi) | resuelta |
 | C13 | Penales (periodo 5) | Se conservan con `period = 5`. Todas las fichas de la especificación de Lee los excluyen (exclusión global de su sección 1) | RESUELTA (Lee) | resuelta |
-| C14 | Eventos sin ubicación (0.9%) | `x` e `y` nulos; se excluyen de los mapas, sin imputar | Pablo | vigente por defecto; confirmar antes del lun 19 |
-| C15 | Perspectiva en `frames_360` | Solo `es_equipo_analizado`; `x` e `y` quedan en la perspectiva del equipo del evento (sin `x_eq`/`y_eq`) | Pablo | vigente por defecto; confirmar antes del lun 19 |
+| C14 | Eventos sin ubicación (0.9%) | `x` e `y` nulos; se excluyen de los mapas, sin imputar | RESUELTA (Pablo) | resuelta |
+| C15 | Perspectiva en `frames_360` | Solo `es_equipo_analizado`; `x` e `y` quedan en la perspectiva del equipo del evento (sin `x_eq`/`y_eq`) | RESUELTA (Pablo) | resuelta |
 | C16 | Dónde viven los parquet limpios | `data/interim/` (limpias) y `data/processed/` (agregadas del lunes) | RESUELTA (Yordi) | resuelta |
 | C17 | Quién produce `posiciones` | `02_limpieza.py` (Yordi), con acuerdo de Lee | RESUELTA (Yordi) | resuelta |
 | C18 | Partidos que no pasan los filtros de calidad (plan 7.1) | Se excluyen y se reportan en `data/interim/partidos_excluidos.csv`; ya no detienen la corrida. Los filtros son `play_status` = Normal, `match_status` = available, `collection_status` = Complete y `match_status_360` = available. Todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga` traen solo los `match_id` de `partidos`. Las 4 tablas de `02_auxiliares.py` (`related_events`, `tactics_lineup`, `defensive_responsibility` y `shot_freeze_frame`) deben salir de `data/interim/eventos.parquet`, y no de los crudos, para traer solo los `match_id` de `partidos` | RESUELTA (Yordi) | resuelta |

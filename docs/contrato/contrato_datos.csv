@@ -243,8 +243,8 @@ eventos,half_start_late_video_start,boolean,half_start.late_video_start,Ausente 
 eventos,pass_backheel,boolean,pass.backheel,Ausente = False (rellenar con False). No existe en el parquet crudo de ninguno de los 91 partidos; se crea con False.,False,True
 eventos,offside_advantage,boolean,offside.advantage,Ausente = False (rellenar con False). No existe en el parquet crudo de ninguno de los 91 partidos; se crea con False.,False,True
 eventos,shot_kick_off,boolean,shot.kick_off,Ausente = False (rellenar con False). No existe en el parquet crudo de ninguno de los 91 partidos; se crea con False.,False,True
-eventos,pass_completed,boolean,pass.outcome.name,Resultado vacío = éxito: True si type_name = Pass y pass_outcome_name es nulo.,,False
-eventos,receipt_ok,boolean,ball_receipt.outcome.name,Resultado vacío = éxito: True si type_name = 'Ball Receipt*' y el resultado es nulo.,,False
+eventos,pass_completed,boolean,pass.outcome.name,Resultado vacío = éxito: True si type_name = Pass y pass_outcome_name es nulo; False si trae resultado. Nulo cuando type_name no es Pass.,,False
+eventos,receipt_ok,boolean,ball_receipt.outcome.name,Resultado vacío = éxito: True si type_name = 'Ball Receipt*' y el resultado es nulo; False si trae resultado. Nulo cuando type_name no es 'Ball Receipt*'.,,False
 eventos,match_second,Int64,"minute, second","minute * 60 + second. NO es único entre periodos (el 2o tiempo arranca en 2700 pero el 1o puede pasar de 2700): ordenar siempre por (match_id, index); match_second sirve para agrupar por tiempo dentro de (match_id, period).",,False
 eventos,es_administrativo,boolean,type.name,"True para Half Start, Half End, Starting XI, Tactical Shift, Substitution, Player On, Player Off, Injury Stoppage, Referee Ball-Drop y Camera On (contrato.ADMINISTRATIVOS); se conservan en la tabla. Camera On no tiene filas en los 91 partidos; está en la lista porque la especificación de Lee lo cuenta como administrativo.",,False
 eventos,torneo,category,partidos.torneo,"Unión con partidos por match_id; julio a diciembre = Apertura, enero a junio = Clausura.",,False
@@ -264,13 +264,13 @@ frames_360,actor,boolean,freeze_frame[].actor,Sin cambios.,,False
 frames_360,keeper,boolean,freeze_frame[].keeper,Sin cambios.,,False
 frames_360,x,float64,freeze_frame[].location,"Se separa [x, y].",,False
 frames_360,y,float64,freeze_frame[].location,"Se separa [x, y].",,False
-frames_360,es_equipo_analizado,boolean,"freeze_frame[].teammate, eventos.team_id, partidos.equipo_id",Si el equipo del evento es el analizado: teammate; si no: not teammate. Nulo si el evento no está en eventos.,,False
+frames_360,es_equipo_analizado,boolean,"freeze_frame[].teammate, eventos.team_id, partidos.equipo_id",Si el equipo del evento es el analizado: teammate; si no: not teammate. Que el evento no esté en eventos no ocurre en las tablas escritas: un frame sin su evento es un huérfano y detiene la corrida.,,False
 frames_360_evento,match_id,Int64,match_id,Llave.,,False
 frames_360_evento,event_uuid,string,event_uuid,strip.,,False
 frames_360_evento,visible_area,string,visible_area,"Polígono [x1, y1, x2, y2, ...] guardado como texto JSON.",,False
 frames_360_evento,visible_area_yd2,float64,visible_area,Fórmula del polígono (shoelace) sobre los puntos.,,False
-frames_360_evento,n_visibles_equipo,Int64,visible_player_counts[].count,"count del team_id igual al eventos.team_id del evento. Es el equipo del evento (el actor), no el equipo analizado. Nulo si visible_player_counts viene vacío (2,253 frames, 0.8%) o si el evento no está en eventos: significa sin conteo, no cero.",,False
-frames_360_evento,n_visibles_rival,Int64,visible_player_counts[].count,"count del team_id distinto al del evento; vale 0 si solo aparece el equipo del evento. Nulo si visible_player_counts viene vacío (2,253 frames, 0.8%) o si el evento no está en eventos: significa sin conteo, no cero.",,False
+frames_360_evento,n_visibles_equipo,Int64,visible_player_counts[].count,"count del team_id igual al eventos.team_id del evento (unión por match_id y event_uuid); vale 0 si ese equipo no aparece en visible_player_counts. Es el equipo del evento (el actor), no el equipo analizado. Nulo si visible_player_counts viene vacío (2,253 frames, 0.8%). Que el evento no esté en eventos no ocurre en las tablas escritas: un frame sin su evento es un huérfano y detiene la corrida. El nulo significa sin conteo, no cero.",,False
+frames_360_evento,n_visibles_rival,Int64,visible_player_counts[].count,"count del otro equipo del partido (home_team_id/away_team_id de partidos); vale 0 si ese equipo no aparece en visible_player_counts y queda nulo si el equipo del evento no es ninguno de los dos. Nulo si visible_player_counts viene vacío (2,253 frames, 0.8%). Que el evento no esté en eventos no ocurre en las tablas escritas: un frame sin su evento es un huérfano y detiene la corrida. El nulo significa sin conteo, no cero.",,False
 frames_360_evento,line_breaking_pass,boolean,line_breaking_pass,Ausente = False.,False,False
 frames_360_evento,ball_receipt_in_space,boolean,ball_receipt_in_space,Ausente = False.,False,False
 frames_360_evento,num_defenders_on_goal_side_of_actor,float64,num_defenders_on_goal_side_of_actor,Nulo legítimo; no imputar.,,False

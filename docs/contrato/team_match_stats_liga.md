@@ -17,6 +17,7 @@ Reglas principales:
 - Mismas columnas que `team_match_stats`, más `torneo`, `fase`, `es_play_in`, `es_final`, `match_date` y `match_week`.
 - No se le aplica la exclusión de partidos de C18 ni el filtro de 360 (`match_status_360`): la línea base solo usa `match_status` = available, `collection_status` = Complete y `play_status` = Normal.
 - `es_final` se calcula sobre toda la liga, no solo sobre los partidos de América.
+- Con `--solo-partido` se recorta a las filas de ese partido.
 - Se descarta `account_id`.
 
 Decisiones que la afectan:

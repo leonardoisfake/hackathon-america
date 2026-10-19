@@ -16,8 +16,9 @@ Reglas principales:
 
 - `freeze_frame` se explota con un contador `jugador_idx` desde 0; el freeze frame no trae ids de jugador.
 - Solo aparecen los jugadores que ve la cámara.
-- `x` e `y` quedan en la perspectiva del equipo que ejecuta el evento; `es_equipo_analizado` dice si el jugador visible es del equipo analizado y queda nulo si el evento no está en `eventos`.
-- `event_uuid` se une con `eventos.id`.
+- `x` e `y` quedan en la perspectiva del equipo que ejecuta el evento; `es_equipo_analizado` dice si el jugador visible es del equipo analizado que el evento no esté en `eventos` no ocurre en las tablas escritas: un frame sin su evento es un huérfano y detiene la corrida.
+- `event_uuid` se une con `eventos.id` dentro del partido, por (`match_id`, `event_uuid`).
+- Las filas van ordenadas por la llave (`match_id`, `event_uuid`, `jugador_idx`). `event_uuid` es un UUID, así que ese orden no es cronológico: para seguir el partido, une con `eventos` por (`match_id`, `event_uuid` = `id`) y ordena por `index`.
 
 Decisiones que la afectan:
 
@@ -25,8 +26,8 @@ Decisiones que la afectan:
 |---|---|---|---|---|
 | C1 | Unidad de distancia | Yardas (nativas de StatsBomb; 1 yarda = 0.9144 m) | RESUELTA (Yordi) | resuelta |
 | C3 | 360 en dos tablas | `frames_360` (jugador visible) y `frames_360_evento` (área y conteos) | RESUELTA (Yordi) | resuelta |
-| C14 | Eventos sin ubicación (0.9%) | `x` e `y` nulos; se excluyen de los mapas, sin imputar | Pablo | vigente por defecto; confirmar antes del lun 19 |
-| C15 | Perspectiva en `frames_360` | Solo `es_equipo_analizado`; `x` e `y` quedan en la perspectiva del equipo del evento (sin `x_eq`/`y_eq`) | Pablo | vigente por defecto; confirmar antes del lun 19 |
+| C14 | Eventos sin ubicación (0.9%) | `x` e `y` nulos; se excluyen de los mapas, sin imputar | RESUELTA (Pablo) | resuelta |
+| C15 | Perspectiva en `frames_360` | Solo `es_equipo_analizado`; `x` e `y` quedan en la perspectiva del equipo del evento (sin `x_eq`/`y_eq`) | RESUELTA (Pablo) | resuelta |
 | C18 | Partidos que no pasan los filtros de calidad (plan 7.1) | Se excluyen y se reportan en `data/interim/partidos_excluidos.csv`; ya no detienen la corrida. Los filtros son `play_status` = Normal, `match_status` = available, `collection_status` = Complete y `match_status_360` = available. Todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga` traen solo los `match_id` de `partidos`. Las 4 tablas de `02_auxiliares.py` (`related_events`, `tactics_lineup`, `defensive_responsibility` y `shot_freeze_frame`) deben salir de `data/interim/eventos.parquet`, y no de los crudos, para traer solo los `match_id` de `partidos` | RESUELTA (Yordi) | resuelta |
 
 ## Columnas (9)
@@ -41,4 +42,4 @@ Decisiones que la afectan:
 | `keeper` | boolean | El jugador visible es portero. | `freeze_frame[].keeper` | Sin cambios. |
 | `x` | float64 | Coordenada x del jugador visible (yardas, perspectiva del equipo que ejecuta el evento). | `freeze_frame[].location` | Se separa [x, y]. |
 | `y` | float64 | Coordenada y del jugador visible (yardas, perspectiva del equipo que ejecuta el evento). | `freeze_frame[].location` | Se separa [x, y]. |
-| `es_equipo_analizado` | boolean | El jugador visible pertenece al equipo analizado. | `freeze_frame[].teammate`, `eventos.team_id`, `partidos.equipo_id` | Si el equipo del evento es el analizado: teammate; si no: not teammate. Nulo si el evento no está en `eventos`. |
+| `es_equipo_analizado` | boolean | El jugador visible pertenece al equipo analizado. | `freeze_frame[].teammate`, `eventos.team_id`, `partidos.equipo_id` | Si el equipo del evento es el analizado: teammate; si no: not teammate. Que el evento no esté en `eventos` no ocurre en las tablas escritas: un frame sin su evento es un huérfano y detiene la corrida. |

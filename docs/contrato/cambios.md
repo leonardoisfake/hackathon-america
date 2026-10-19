@@ -17,12 +17,14 @@
 - El contrato pasa de un solo md a la carpeta `docs/contrato/`: README, un md por tabla, `cambios.md` y `contrato_datos.csv`. `scripts/contrato.py` lee el csv desde ahí.
 - Resueltas el 18 de octubre: C5 (los eventos administrativos se conservan), C8 (se cierra sin tablas nuevas), C9 (nulo en `to`), y C10, C12, C16 con el default vigente.
 - Resueltas por Lee en su especificación de métricas: C6 (`match_clock` y `minute_bin` no van en la tabla limpia; se calculan en la fase 3, `scripts/03_contexto.py`) y C13 (los penales se conservan con `period = 5` y todas las fichas los excluyen).
+- Resueltas por Pablo: C14 (los eventos con `x`/`y` nulos no entran a las gráficas) y C15 (en `frames_360` usa `es_equipo_analizado` y no toma los nulos).
 - Decisiones nuevas: C17 (`posiciones` la produce `02_limpieza.py`), C18 (los partidos que no pasan los filtros del plan 7.1 se excluyen de todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga`, y se reportan), C19 (el umbral de jugadores visibles lo aplica cada métrica y lo define Lee; valor provisional: actor visible y al menos 10 jugadores visibles), C20 (`managers` se queda resumido en `partidos`; abierta, la confirma Lee) y C21 (los conteos 360 vacíos quedan nulos; resuelta).
 - C10 se amplía: las 8 banderas que no salen en ningún partido se conservan en False. C11 anota que `out` y `off_camera` ya se rellenan con False. C19 reemplaza el punto 7 de la sección 11 del plan.
-- Siguen abiertas con su default: C4, C7, C11, C20 (Lee) y C14, C15 (Pablo), vigente por defecto; confirmar antes del lun 19. Las decisiones resueltas pasan de 3 a 15.
+- Siguen abiertas con su default: C4, C7, C11 y C20 (Lee), vigente por defecto; confirmar antes del lun 19. Las decisiones resueltas pasan de 3 a 17.
 - Correcciones de texto: el orden es siempre (`match_id`, `index`) y `match_second` sirve para agrupar dentro de (`match_id`, `period`); `timestamp` queda verificado; "Escala 0 a 1" solo aparece en las proporciones conocidas por nombre cuyo rango observado cabe en [0, 1], y `directness` ya no la lleva; `player_match_long_balls` dice pases largos intentados; los % de nulos de `alineaciones` se recalculan y se documenta la banca que no entró; `partidos.md` explica `partidos_excluidos.csv` y los errores de video; la línea base aclara qué filtros no se le aplican; se quita la etiqueta "D1:" del grano de `partidos`.
 - Convenciones nuevas en el README: todo texto pasa por strip, las categorías salen de cada corrida (hay que alinearlas antes de concatenar), el csv tiene `relleno` y `puede_faltar`, y el alcance de C18 lista los cuatro filtros. `eventos` aclara que también trae `es_play_in` y `es_final` desde `partidos`.
 - `cambios.md` sale de una lista fija de versiones publicadas en el script, así que regenerar ya no borra la historia. El README explica cómo se publica una versión nueva.
+- Se documentan las salidas de control de `02_limpieza.py` y se precisan las reglas de `pass_completed`, `receipt_ok` y `n_visibles_*`.
 
 Tipos que cambian, calculados contra el `contrato_datos.csv` de v0.1:
 
