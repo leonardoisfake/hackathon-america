@@ -17,14 +17,14 @@ Reglas principales:
 - La lista se explota con una fila por jugador.
 - `tactics_formation` es entero (por ejemplo 4231).
 - Las formaciones se leen de `tactics_formation`; no hay tabla aparte.
-- Debe salir de `data/interim/eventos.parquet` y no de los crudos, para traer solo los `match_id` de `partidos` (C18).
+- Sale de los eventos crudos (`data/raw/parquet/events__*.parquet`) filtrados a los `match_id` de `data/interim/partidos.parquet`, como pide C18, y se une a `eventos` por (`match_id`, `index`).
 
 Decisiones que la afectan:
 
 | # | decisión | default vigente | quién decide | fecha límite |
 |---|---|---|---|---|
 | C8 | Tarjetas y formaciones de lineups | Se cierra sin tablas nuevas: las formaciones salen de `tactics_formation` (eventos Starting XI y Tactical Shift) y las tarjetas de `foul_committed_card_*` y `bad_behaviour_card_*`, que ya están en `eventos` | RESUELTA (Yordi) | resuelta |
-| C18 | Partidos que no pasan los filtros de calidad (plan 7.1) | Se excluyen y se reportan en `data/interim/partidos_excluidos.csv`; ya no detienen la corrida. Los filtros son `play_status` = Normal, `match_status` = available, `collection_status` = Complete y `match_status_360` = available. Todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga` traen solo los `match_id` de `partidos`. Las 4 tablas de `02_auxiliares.py` (`related_events`, `tactics_lineup`, `defensive_responsibility` y `shot_freeze_frame`) deben salir de `data/interim/eventos.parquet`, y no de los crudos, para traer solo los `match_id` de `partidos` | RESUELTA (Yordi) | resuelta |
+| C18 | Partidos que no pasan los filtros de calidad (plan 7.1) | Se excluyen y se reportan en `data/interim/partidos_excluidos.csv`; ya no detienen la corrida. Los filtros son `play_status` = Normal, `match_status` = available, `collection_status` = Complete y `match_status_360` = available. Todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga` traen solo los `match_id` de `partidos`. Las 4 tablas de `02_auxiliares.py` (`related_events`, `tactics_lineup`, `defensive_responsibility` y `shot_freeze_frame`) salen de los eventos crudos (`data/raw/parquet/events__*.parquet`) porque `data/interim/eventos.parquet` no trae sus listas; se filtran a los `match_id` de `data/interim/partidos.parquet` y se unen a `eventos` por (`match_id`, `index`) | RESUELTA (Yordi) | resuelta |
 
 ## Columnas (9)
 
