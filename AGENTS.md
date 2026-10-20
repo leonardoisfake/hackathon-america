@@ -22,7 +22,7 @@ La entrega es el jueves 22 de octubre de 2026 por correo. La meta interna es ten
 Datos:
 
 - Los datos de StatsBomb no se publican y no van al repo. `.gitignore` excluye `data/`, `*.parquet`, `*.json`, `*.csv` y `*.xlsx`. La única excepción es `docs/contrato/contrato_datos.csv`.
-- Los datos se comparten por un Drive privado del equipo, con la misma estructura de carpetas (`data/raw/parquet/` y `data/interim/`). La caché JSON de la API (`data/raw/*.json`) no se comparte: cada quien la regenera con `sb_api.py`.
+- Los datos se comparten por un Drive privado del equipo, con la misma estructura de carpetas (`data/raw/parquet/`, `data/interim/` y `data/processed/`). La caché JSON de la API (`data/raw/*.json`) no se comparte: cada quien la regenera con `sb_api.py`.
 - Al HTML y a cualquier repositorio público solo llegan resultados, nunca datos crudos.
 
 Credenciales:
@@ -51,20 +51,22 @@ Estilo de trabajo:
 | `sb_api.py` | Acceso a la API de StatsBomb con caché en `data/raw/`. Lee las credenciales de `.env` y define `TEMPORADAS_RETO` (108, 235, 281, 317). |
 | `scripts/01_descarga.py` | Fase 1. Baja los partidos de un entrenador y los guarda en parquet crudo. |
 | `scripts/02_limpieza.py` | Fase 2. Limpia el crudo según el contrato y escribe `data/interim/`. |
+| `scripts/03_contexto.py` | Fase 3. Contexto y espacio por evento, posesión y partido (fichas B1, C1 a C5, E1 y E2 de Lee). Escribe `data/processed/`. |
 | `scripts/contrato.py` | Lee el contrato (`cargar`, `esquema`, `vacio`, `validar`) y define `ADMINISTRATIVOS`. |
 | `scripts/gen_contrato.py` | Genera todo `docs/contrato/` desde los parquet crudos. |
 | `docs/contrato/` | Contrato de datos: `README.md`, un `.md` por tabla, `cambios.md` y `contrato_datos.csv`. |
 | `docs/spec_01_descarga.md` | Especificación de la descarga: criterios de aceptación, alternativas descartadas, pendientes. |
 | `docs/inventario_descarga.md` | Reporte de la última descarga completa (17 de octubre): filas por tabla, cobertura 360, partidos excluidos. |
+| `docs/spec_03_contexto.md` | Especificación del contexto: columnas, desviaciones de las fichas, regla de B1 y criterios de aceptación. |
 | `requirements.txt` | `pandas==3.0.5`, `pyarrow==26.0.0`, `requests==2.33.1`. |
-| `data/` | Local e ignorado por git. `data/raw/` (caché JSON y `parquet/`), `data/interim/` (tablas limpias), `data/diccionario.json` (lo lee `gen_contrato.py`). |
+| `data/` | Local e ignorado por git. `data/raw/` (caché JSON y `parquet/`), `data/interim/` (tablas limpias), `data/processed/` (tablas de la fase 3), `data/diccionario.json` (lo lee `gen_contrato.py`). |
 
 Fuera del repo, en la carpeta `Local` del equipo:
 
 - `Plan_de_trabajo_Kpumas.md`: el plan. Las secciones 7.1 a 7.3 definen la limpieza; la 12 y la 14 dan el calendario y el reparto por fase.
-- `METRICAS_LEE.md`: la especificación de métricas de Lee (34 fichas). La sección 1 reúne las convenciones comunes.
+- `METRICAS_LEE.md`: la especificación de métricas de Lee (34 fichas). La sección 1 reúne las convenciones comunes. Las mismas fichas llegan al repo en `especificaciones_metricas/`, por la rama de Lee.
 
-Los scripts de las fases siguientes (`03_*.py`, `04_*.py`, `graficas.py`) todavía no existen. `scripts/02_auxiliares.py` (Lee) arma las 4 tablas auxiliares del contrato desde los eventos crudos y llega por la rama de Lee; se corre después de `02_limpieza.py` con `python scripts/02_auxiliares.py`.
+De la fase 3 solo existe `scripts/03_contexto.py`. Los demás scripts `03_*.py`, los `04_*.py` y `graficas.py` todavía no están en ninguna rama. Por la rama de Lee llegan `scripts/02_auxiliares.py`, que arma las 4 tablas auxiliares del contrato desde los eventos crudos (se corre después de `02_limpieza.py` con `python scripts/02_auxiliares.py`), y dos scripts de revisión, `control_calidad.py` y `gen_reporte_nulos.py`, que escriben CSV en `data/interim/`.
 
 ## Cómo correr el pipeline
 
@@ -108,6 +110,28 @@ python scripts/02_limpieza.py                          # todos los partidos, esc
 | 0 | Todo se escribió. |
 | 1 | Error de datos, contrato, cobertura o escritura. Casi siempre sin escribir nada; si el reemplazo queda a medias, el mensaje dice qué archivos se reemplazaron y dónde quedó la carpeta temporal. |
 | 2 | Con `--solo-partido`, el partido no existe o no pasa los filtros de calidad. |
+
+### Contexto
+
+```
+python scripts/03_contexto.py                  # escribe en data/processed/
+python scripts/03_contexto.py --sin-escribir   # calcula y valida, sin escribir
+```
+
+Lee `eventos`, `partidos`, `posiciones`, `team_match_stats` y `team_match_stats_liga` de `data/interim/`, así que va después de `02_limpieza.py`. Tarda unos 4 segundos y produce cuatro parquet:
+
+| Tabla | Una fila por | Llave |
+| :--- | :--- | :--- |
+| `contexto_eventos` | evento (317,849) | `match_id`, `index` |
+| `rival_strength` | equipo y torneo de toda la liga, sin el América (136) | `team_id`, `torneo` |
+| `contexto_posesiones` | posesión de StatsBomb de los periodos 1 a 4 (19,053) | `match_id`, `possession` |
+| `contexto_partidos` | partido (91) | `match_id` |
+
+- Escribe además `control_posesiones_fundidas.csv`, para revisar B1 a mano.
+- Las tablas no copian `eventos`: traen la llave y las columnas nuevas, y se usan con un `merge` por la llave.
+- `score_state`, `goal_diff`, `numerical_state` y `rival_strength_tercil` se leen siempre desde el América, también en los eventos y las posesiones del rival.
+- Para contar posesiones hay que excluir las que tienen `es_administrativa` en True (solo traen alineación, medio tiempo o cambios). La posesión válida de B1 es `is_valid_possession`.
+- Códigos de salida: 0 si todo pasó (y se escribió, cuando se pidió); 1 si falló una validación dura, falta un dato o falló la escritura. Si falla una validación no escribe nada. Las validaciones y las desviaciones de las fichas están en `docs/spec_03_contexto.md`.
 
 ### Contrato
 
@@ -157,6 +181,10 @@ No se revierten sin hablarlo con el equipo.
 | Los conteos 360 vacíos quedan nulos, no cero (C21). | Nulo quiere decir que no hay conteo. |
 | `es_final` marca los dos últimos partidos de eliminación directa del torneo entre el mismo par de equipos. | Las etiquetas de `competition_stage` no son confiables: hay Play-In etiquetados como Final. |
 | Siempre se filtra por `manager_id` y `team_id` a la vez, nunca por nombre. | Jardine aparece también con Atlético San Luis, y el nombre viene en varias versiones. |
+| B1 no funde posesiones: `posesion_fundida_id` es igual a `possession`. | StatsBomb ya deja dentro de la posesión el toque sin dirección del rival. Lo único que se fundiría es una reanudación (banda, córner, saque de meta), y la ficha dice que la reanudación abre una posesión nueva. |
+| Un penal no vuelve válida una posesión; `n_tiros` sí lo cuenta. | Es el mismo criterio del `xg` de la posesión, que va sin penales. Decisión de Yordi del 19 de octubre. |
+| `numerical_state` solo cuenta las expulsiones de jugadores que estaban en cancha. | Hay 2 rojas a jugadores que ya no jugaban (uno ya cambiado y un portero suplente) y no cambian cuántos hay en cancha. |
+| Las columnas mezclan inglés y español. Unificar el idioma queda para después del 22 de octubre. | Cambiarlo ahora rompe el contrato, la limpieza y los scripts de los demás a mitad de la fase 3. |
 
 ## Cómo verificar un cambio
 
@@ -176,25 +204,29 @@ despues = pd.read_parquet("data/interim/eventos.parquet")
 assert_frame_equal(antes, despues)   # falla si cambia una columna, un tipo o un valor
 ```
 
+5. Contexto: `python scripts/03_contexto.py --sin-escribir` debe terminar con código 0. Las líneas `AVISO` son informativas; una falla dura termina con código 1.
+
 ## Estado y siguiente fase
 
-Estado al 18 de octubre de 2026:
+Estado al 19 de octubre de 2026:
 
 - Fase 1 (descarga): cerrada.
 - Fase 2 (limpieza): terminada por Yordi. Hay 9 tablas en `data/interim/`, 0 duplicados, 0 huérfanos y 89.3% de los eventos con frame 360.
-- Contrato v0.2 con 21 decisiones: 17 resueltas y 4 abiertas, todas de Lee (C4, C7, C11 y C20). Tienen un default vigente y Lee debe confirmarlas antes del lunes 19.
-- Lee entregó la especificación de métricas: 34 fichas, en un documento fuera del repo.
+- Contrato v0.2 con 21 decisiones: 17 resueltas y 4 abiertas, todas de Lee (C4, C7, C11 y C20). Tienen un default vigente y falta que Lee las confirme.
+- Lee entregó la especificación de métricas: 34 fichas, que llegan al repo en `especificaciones_metricas/`.
+- Fase 3: `03_contexto.py` está terminado. Sus cuatro tablas pasan las validaciones con los 91 partidos.
 
-Sigue la fase 3, el lunes 19 de octubre:
+Fase 3, del lunes 19 de octubre:
 
-| Script | Responsable |
-| :--- | :--- |
-| `scripts/03_contexto.py` | Yordi |
-| `scripts/03_ataque.py` | Lee |
-| `scripts/03_defensa.py` | Pablo |
-| `scripts/03_jugadores.py` | Pato |
+| Script | Responsable | Estado |
+| :--- | :--- | :--- |
+| `scripts/03_contexto.py` | Yordi | Terminado |
+| `scripts/03_ataque.py` | Lee | Todavía no está en el repo |
+| `scripts/03_defensa.py` | Pablo | Todavía no está en el repo |
+| `scripts/03_jugadores.py` | Pato | Todavía no está en el repo |
 
 ## Ver también
 
 - `docs/contrato/README.md` y `docs/contrato/cambios.md`: contrato, decisiones e historial de versiones.
 - `docs/spec_01_descarga.md`: criterios de aceptación y pendientes de la descarga.
+- `docs/spec_03_contexto.md`: columnas, reglas y validaciones del contexto.
