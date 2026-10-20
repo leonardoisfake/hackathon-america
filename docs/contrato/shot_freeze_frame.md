@@ -17,7 +17,7 @@ Reglas principales:
 - La lista se explota con un contador `jugador_idx` desde 0.
 - `x` e `y` salen de `location`.
 - No estaba en la lista original de tareas; se agregó porque el plan 7.3.7 pide explotar `shot.freeze_frame`.
-- Debe salir de `data/interim/eventos.parquet` y no de los crudos, para traer solo los `match_id` de `partidos` (C18).
+- Sale de los eventos crudos (`data/raw/parquet/events__*.parquet`) filtrados a los `match_id` de `data/interim/partidos.parquet`, como pide C18, y se une a `eventos` por (`match_id`, `index`).
 
 Decisiones que la afectan:
 
@@ -25,7 +25,7 @@ Decisiones que la afectan:
 |---|---|---|---|---|
 | C1 | Unidad de distancia | Yardas (nativas de StatsBomb; 1 yarda = 0.9144 m) | RESUELTA (Yordi) | resuelta |
 | C4 | Tabla extra `shot_freeze_frame` | Se incluye; la produce `02_auxiliares.py` | Lee | vigente por defecto; confirmar antes del lun 19 |
-| C18 | Partidos que no pasan los filtros de calidad (plan 7.1) | Se excluyen y se reportan en `data/interim/partidos_excluidos.csv`; ya no detienen la corrida. Los filtros son `play_status` = Normal, `match_status` = available, `collection_status` = Complete y `match_status_360` = available. Todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga` traen solo los `match_id` de `partidos`. Las 4 tablas de `02_auxiliares.py` (`related_events`, `tactics_lineup`, `defensive_responsibility` y `shot_freeze_frame`) deben salir de `data/interim/eventos.parquet`, y no de los crudos, para traer solo los `match_id` de `partidos` | RESUELTA (Yordi) | resuelta |
+| C18 | Partidos que no pasan los filtros de calidad (plan 7.1) | Se excluyen y se reportan en `data/interim/partidos_excluidos.csv`; ya no detienen la corrida. Los filtros son `play_status` = Normal, `match_status` = available, `collection_status` = Complete y `match_status_360` = available. Todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga` traen solo los `match_id` de `partidos`. Las 4 tablas de `02_auxiliares.py` (`related_events`, `tactics_lineup`, `defensive_responsibility` y `shot_freeze_frame`) salen de los eventos crudos (`data/raw/parquet/events__*.parquet`) porque `data/interim/eventos.parquet` no trae sus listas; se filtran a los `match_id` de `data/interim/partidos.parquet` y se unen a `eventos` por (`match_id`, `index`) | RESUELTA (Yordi) | resuelta |
 
 ## Columnas (10)
 

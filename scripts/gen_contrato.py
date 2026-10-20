@@ -154,7 +154,7 @@ ORDEN = ["partidos", "eventos", "frames_360", "frames_360_evento", "alineaciones
 # tablas de 02_limpieza.py que solo traen los match_id de `partidos` (C18)
 POR_PARTIDO = ["partidos", "eventos", "frames_360", "frames_360_evento", "alineaciones", "posiciones",
                "team_match_stats", "player_match_stats"]
-# tablas de 02_auxiliares.py; C18 pide que salgan de data/interim/eventos.parquet y no de los crudos
+# tablas de 02_auxiliares.py; salen de los eventos crudos filtrados a los match_id de partidos (C18)
 AUXILIARES = ["related_events", "tactics_lineup", "defensive_responsibility", "shot_freeze_frame"]
 
 # numero C publicado de cada decision; solo agregar al final
@@ -1002,7 +1002,7 @@ def decisiones(c):
         ("perspectiva_360", "Perspectiva en `frames_360`", "Solo `es_equipo_analizado`; `x` e `y` quedan en la perspectiva del equipo del evento (sin `x_eq`/`y_eq`)", "RESUELTA (Pablo)", "-"),
         ("donde_parquet", "Dónde viven los parquet limpios", "`data/interim/` (limpias) y `data/processed/` (agregadas del lunes)", "RESUELTA (Yordi)", "-"),
         ("produce_posiciones", "Quién produce `posiciones`", "`02_limpieza.py` (Yordi), con acuerdo de Lee", "RESUELTA (Yordi)", "-"),
-        ("filtros_calidad", "Partidos que no pasan los filtros de calidad (plan 7.1)", f"Se excluyen y se reportan en `data/interim/partidos_excluidos.csv`; ya no detienen la corrida. Los filtros son {texto_filtros()}. Todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga` traen solo los `match_id` de `partidos`. Las 4 tablas de `02_auxiliares.py` (`related_events`, `tactics_lineup`, `defensive_responsibility` y `shot_freeze_frame`) deben salir de `data/interim/eventos.parquet`, y no de los crudos, para traer solo los `match_id` de `partidos`", "RESUELTA (Yordi)", "-"),
+        ("filtros_calidad", "Partidos que no pasan los filtros de calidad (plan 7.1)", f"Se excluyen y se reportan en `data/interim/partidos_excluidos.csv`; ya no detienen la corrida. Los filtros son {texto_filtros()}. Todas las tablas de `02_limpieza.py` salvo `team_match_stats_liga` traen solo los `match_id` de `partidos`. Las 4 tablas de `02_auxiliares.py` (`related_events`, `tactics_lineup`, `defensive_responsibility` y `shot_freeze_frame`) salen de los eventos crudos (`data/raw/parquet/events__*.parquet`) porque `data/interim/eventos.parquet` no trae sus listas; se filtran a los `match_id` de `data/interim/partidos.parquet` y se unen a `eventos` por (`match_id`, `index`)", "RESUELTA (Yordi)", "-"),
         ("umbral_360", "Umbral de jugadores visibles del 360", "No se fija en la tabla limpia: `frames_360_evento` entrega `n_visibles_equipo` y `n_visibles_rival`, y cada métrica aplica su propio filtro. Lee define el umbral en la especificación de métricas; su valor provisional es actor visible y al menos 10 jugadores visibles, por calibrar con la distribución real de `visible_player_counts`. Esta decisión reemplaza el punto 7 de la sección 11 del plan", "RESUELTA (Yordi)", "-"),
         ("managers", "Listas de managers", f"`managers` no se explota: queda resumido en {lista_md(c['entrenador_cols'])} de `partidos`", "Lee", CONFIRMAR),
         ("conteo_360_vacio", "Conteos 360 sin `visible_player_counts`", f"`n_visibles_equipo` y `n_visibles_rival` quedan nulos cuando `visible_player_counts` viene vacío ({c['n_vpc_vacio']:,} frames, {c['pct_vpc_vacio']:.1f}%). El nulo quiere decir que no hay conteo y no equivale a cero", "RESUELTA (Yordi)", "-"),
@@ -1172,7 +1172,7 @@ def resumenes(c):
         if "filtros_calidad" not in res[t]["dec"]:
             res[t]["dec"].append("filtros_calidad")
     for t in AUXILIARES:
-        res[t]["reglas"].append(f"Debe salir de `data/interim/eventos.parquet` y no de los crudos, para traer solo los `match_id` de `partidos` ({C('filtros_calidad')}).")
+        res[t]["reglas"].append(f"Sale de los eventos crudos (`data/raw/parquet/events__*.parquet`) filtrados a los `match_id` de `data/interim/partidos.parquet`, como pide {C('filtros_calidad')}, y se une a `eventos` por (`match_id`, `index`).")
     return res
 
 
@@ -1340,7 +1340,7 @@ def md_readme(tablas, notas, produce, c, decs):
         f"`fase` vale `regular` (competition_stage.id en {{{', '.join(map(str, STAGES_REGULAR))}}}) o `liguilla`; `es_play_in` marca el stage id {STAGE_PLAY_IN} y `es_final` los dos partidos de la final. `torneo` sale de la fecha: {REGLA_TORNEO}.",
         "Los parquet limpios se guardan en `data/interim/` con el nombre de la tabla (`data/interim/eventos.parquet`); la muestra de un partido en `data/interim/muestra/`.",
         f"Las columnas documentadas que faltan en un partido se crean igual (False o nulo) para que el esquema no cambie entre corridas. `puede_faltar = True` marca solo las que {no_existe(c['n_partidos'], plural=True)}, y su regla lo dice.",
-        f"**Alcance ({C('filtros_calidad')}).** Los partidos que no pasan los filtros de calidad (plan 7.1) los anota la limpieza en `data/interim/partidos_excluidos.csv`, con las columnas `match_id`, `campo` y `valor` y una fila por partido y por filtro que falla. Los valores posibles de `campo` son los cuatro filtros: {texto_filtros()}. Todas las tablas de `02_limpieza.py`, salvo `team_match_stats_liga`, traen solo los `match_id` que quedan en `partidos`; las 4 de `02_auxiliares.py` deben salir de `data/interim/eventos.parquet`, y no de los crudos, para cumplirlo.",
+        f"**Alcance ({C('filtros_calidad')}).** Los partidos que no pasan los filtros de calidad (plan 7.1) los anota la limpieza en `data/interim/partidos_excluidos.csv`, con las columnas `match_id`, `campo` y `valor` y una fila por partido y por filtro que falla. Los valores posibles de `campo` son los cuatro filtros: {texto_filtros()}. Todas las tablas de `02_limpieza.py`, salvo `team_match_stats_liga`, traen solo los `match_id` que quedan en `partidos`; las 4 de `02_auxiliares.py` salen de los eventos crudos (`data/raw/parquet/events__*.parquet`), filtrados a los `match_id` de `data/interim/partidos.parquet`, y se unen a `eventos` por (`match_id`, `index`).",
     ]:
         md.append(f"- {t}")
     md.append("")

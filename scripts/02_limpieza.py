@@ -551,9 +551,11 @@ def escribir(salida, tablas, csvs):
     archivos = [f"{n}.parquet" for n in tablas] + list(csvs)
     try:
         salida.mkdir(parents=True, exist_ok=True)
-        ajenos = sorted(x.name for x in salida.glob("*.parquet") if x.name not in archivos)
+        # las tablas del contrato que escriben otros scripts (las auxiliares de 02_auxiliares.py) no son ajenas
+        del_contrato = {f"{t}.parquet" for t in contrato.cargar()["tabla"].unique()}
+        ajenos = sorted(x.name for x in salida.glob("*.parquet") if x.name not in archivos and x.name not in del_contrato)
         if ajenos:
-            print(f"AVISO: {salida} tiene parquet que no son tablas de la limpieza (no se borran): {ajenos}", file=sys.stderr)
+            print(f"AVISO: {salida} tiene parquet que no son tablas del contrato (no se borran): {ajenos}", file=sys.stderr)
         tmp = Path(tempfile.mkdtemp(prefix=".tmp_limpieza_", dir=salida))
     except OSError as e:
         raise ErrorLimpieza(f"no se pudo preparar {salida}: {e}") from e
