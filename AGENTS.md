@@ -52,12 +52,14 @@ Estilo de trabajo:
 | `scripts/01_descarga.py` | Fase 1. Baja los partidos de un entrenador y los guarda en parquet crudo. |
 | `scripts/02_limpieza.py` | Fase 2. Limpia el crudo según el contrato y escribe `data/interim/`. |
 | `scripts/03_contexto.py` | Fase 3. Contexto y espacio por evento, posesión y partido (fichas B1, C1 a C5, E1 y E2 de Lee). Escribe `data/processed/`. |
+| `scripts/03_tabla_analitica.py` | Fase 3, ensamblado final. Junta el contexto con las métricas de Lee, Pablo y Pato en una tabla por posesión y otra por partido, sin recalcular ninguna métrica. Escribe `data/processed/`. |
 | `scripts/contrato.py` | Lee el contrato (`cargar`, `esquema`, `vacio`, `validar`) y define `ADMINISTRATIVOS`. |
 | `scripts/gen_contrato.py` | Genera todo `docs/contrato/` desde los parquet crudos. |
 | `docs/contrato/` | Contrato de datos: `README.md`, un `.md` por tabla, `cambios.md` y `contrato_datos.csv`. |
 | `docs/spec_01_descarga.md` | Especificación de la descarga: criterios de aceptación, alternativas descartadas, pendientes. |
 | `docs/inventario_descarga.md` | Reporte de la última descarga completa (17 de octubre): filas por tabla, cobertura 360, partidos excluidos. |
 | `docs/spec_03_contexto.md` | Especificación del contexto: columnas, desviaciones de las fichas, regla de B1 y criterios de aceptación. |
+| `docs/spec_03_tabla_analitica.md` | Especificación de la tabla analítica: columnas y de dónde sale cada una, insumos, validaciones y criterios de aceptación. |
 | `scripts/04_contexto.py` | Fase 4. Compara cada métrica entre los niveles de seis contextos (marcador, localía, fuerza del rival, minuto, fase y superioridad numérica), con IC por bootstrap de partidos. Escribe `data/processed/`. |
 | `docs/spec_04_contexto.md` | Especificación de las métricas por contexto: salidas, estadística, lecturas, cómo agregar una métrica y criterios de aceptación. |
 | `requirements.txt` | `pandas==3.0.5`, `pyarrow==26.0.0`, `requests==2.33.1`. |
@@ -68,11 +70,13 @@ Fuera del repo, en la carpeta `Local` del equipo:
 - `Plan_de_trabajo_Kpumas.md`: el plan. Las secciones 7.1 a 7.3 definen la limpieza; la 12 y la 14 dan el calendario y el reparto por fase.
 - `METRICAS_LEE.md`: la especificación de métricas de Lee (34 fichas). La sección 1 reúne las convenciones comunes. Las mismas fichas llegan al repo en `especificaciones_metricas/`, por la rama de Lee.
 
-De la fase 3 solo existe `scripts/03_contexto.py` y de la fase 4 solo `scripts/04_contexto.py`. Los demás scripts `03_*.py` y `04_*.py`, y `graficas.py`, todavía no están en ninguna rama. Por la rama de Lee llegan `scripts/02_auxiliares.py`, que arma las 4 tablas auxiliares del contrato desde los eventos crudos (se corre después de `02_limpieza.py` con `python scripts/02_auxiliares.py`), y dos scripts de revisión, `control_calidad.py` y `gen_reporte_nulos.py`, que escriben CSV en `data/interim/`.
+En esta rama están `scripts/03_contexto.py` y `scripts/03_tabla_analitica.py` de la fase 3, y `scripts/04_contexto.py` de la fase 4. `03_ataque.py` está en la rama `B/metricas` (Lee), `03_defensa.py` en `C/visualizacion` (Pablo) y `03_jugadores.py` en `D/narrativa` (Pato); `03_tabla_analitica.py` solo necesita sus parquet en `data/processed/`. `graficas.py` todavía no está en ninguna rama. Por la rama de Lee llegan `scripts/02_auxiliares.py`, que arma las 4 tablas auxiliares del contrato desde los eventos crudos (se corre después de `02_limpieza.py` con `python scripts/02_auxiliares.py`), y dos scripts de revisión, `control_calidad.py` y `gen_reporte_nulos.py`, que escriben CSV en `data/interim/`.
 
 ## Cómo correr el pipeline
 
 Instala con `pip install -r requirements.txt` y corre todo desde la raíz del repo.
+
+El orden es `01_descarga.py`, `02_limpieza.py` y `03_contexto.py`; después `03_ataque.py`, `03_defensa.py` y `03_jugadores.py`, en cualquier orden entre ellos; luego `03_tabla_analitica.py` y al final `04_contexto.py`.
 
 ### Descarga
 
@@ -135,6 +139,37 @@ Lee `eventos`, `partidos`, `posiciones`, `team_match_stats` y `team_match_stats_
 - Para contar posesiones hay que excluir las que tienen `es_administrativa` en True (solo traen alineación, medio tiempo o cambios). La posesión válida de B1 es `is_valid_possession`.
 - Códigos de salida: 0 si todo pasó (y se escribió, cuando se pidió); 1 si falló una validación dura, falta un dato o falló la escritura. Si falla una validación no escribe nada. Las validaciones y las desviaciones de las fichas están en `docs/spec_03_contexto.md`.
 
+### Tabla analítica
+
+```
+python scripts/03_tabla_analitica.py                  # escribe en data/processed/
+python scripts/03_tabla_analitica.py --sin-escribir   # junta y valida, sin escribir
+```
+
+Junta, suma y valida las tablas de los demás sin recalcular ninguna métrica. Tarda menos de un segundo. Lee:
+
+| Insumo | Lo produce |
+| :--- | :--- |
+| `contexto_posesiones`, `contexto_partidos` | `03_contexto.py` (Yordi) |
+| `eventos` de `data/interim/` (equipo, posesión y periodo de cada evento) | `02_limpieza.py` (Yordi) |
+| `ataque_posesiones`, `ataque_eventos` | `03_ataque.py` (Lee) |
+| `balon_parado_posesiones`, `defensa_partidos`, `balon_parado_partidos` | `03_defensa.py` (Pablo) |
+| `jugadores/formacion_por_periodo`, `jugadores/momentos_de_cambio`, `jugadores/onces_iniciales` | `03_jugadores.py` (Pato) |
+
+Produce dos parquet:
+
+| Tabla | Una fila por | Llave |
+| :--- | :--- | :--- |
+| `analitica_posesiones` | posesión (19,053), 48 columnas | `match_id`, `possession` |
+| `analitica_partidos` | partido (91), 119 columnas | `match_id` |
+
+- Las primeras columnas son las de `contexto_posesiones` o `contexto_partidos`, sin cambios. El contexto que repiten Pablo y Pato se compara con el nuestro y no se copia.
+- Un evento de Lee cuenta para la posesión solo si es del equipo con el balón; por partido cuenta todo lo que hizo cada equipo. La diferencia son los eventos de cada equipo sin el balón, y el script la cuadra columna por columna.
+- Lo que Lee solo calcula para el América (los cuatro conteos de progresión, `build_up_chain`, `xg_chain` y `xg_buildup`) queda nulo en las posesiones del rival. Por eso no hay `xg_chain_rival`.
+- Los conteos del 360 (`n_pases_rompe_lineas`, `n_recepciones_espacio`) quedan nulos cuando ningún evento de su tipo tiene frame, y `obv_neto` cuando ningún evento trae OBV.
+- De dónde sale cada columna está en `docs/spec_03_tabla_analitica.md`.
+- Códigos de salida: 0 si todo pasó (y se escribió, cuando se pidió); 1 si falta un insumo o una columna (el mensaje dice qué script lo produce y de quién es), si falló una validación dura (llave repetida, partido faltante, huérfano, contexto distinto del nuestro o un cuadre de AC9 de la spec que no da) o si falló la escritura. Si falla una validación no escribe nada. Los cuadres de balón parado y de `resultado` son informativos: imprimen `AVISO` y no fallan.
+
 ### Métricas por contexto
 
 ```
@@ -153,7 +188,7 @@ Lee `contexto_posesiones` y `contexto_partidos` de `data/processed/`, y `context
 - Cada celda trae el valor, su IC del 95%, `n_obs`, `n_partidos` e `inestable`. Cada comparación trae la diferencia contra el nivel de referencia, el tamaño de efecto, sus IC y una `lectura`: `diferencia`, `diferencia pequena`, `indicio` o `sin diferencia clara`. Lo que significa cada una está en «Cómo leer las tablas» de `docs/spec_04_contexto.md`.
 - Los IC salen de un bootstrap que remuestrea los 91 partidos con semilla fija (`--semilla`), así que dos corridas dan lo mismo. Las celdas de un solo partido (hoy, el tiempo extra) quedan sin IC.
 - Las métricas por partido solo se cruzan con localía, rival y fase, porque el marcador, el minuto y la superioridad cambian dentro del partido.
-- Para agregar una métrica, quien la propone la calcula en su propio script y la deja en un parquet de `data/processed/` con la llave de su nivel: `match_id` y `possession`, `match_id` e `index`, o solo `match_id`. Si es por evento, el parquet trae también `es_eq`. Luego agrega una entrada a `METRICAS` al inicio de `04_contexto.py`, corre `--sin-escribir` hasta que termine con código 0 y abre el PR a `dev`. Después del congelamiento del análisis, una métrica nueva se acuerda antes con el equipo.
+- Las métricas de Lee y Pablo se toman de `analitica_posesiones` o `analitica_partidos`: basta una entrada en `METRICAS` que apunte a esa tabla. Un parquet propio solo hace falta para una métrica nueva que no esté ahí: quien la propone la calcula en su script y la deja en `data/processed/` con la llave de su nivel (`match_id` y `possession`, `match_id` e `index`, o solo `match_id`); si es por evento, el parquet trae también `es_eq`. En los dos casos se corre `--sin-escribir` hasta que termine con código 0 y se abre el PR a `dev`. Después del congelamiento del análisis, una métrica nueva se acuerda antes con el equipo.
 - Códigos de salida: 0 si todo pasó (y se escribió, cuando se pidió); 1 si falló una validación dura (una columna que no existe o no es numérica, una llave repetida o sin contexto, un partido fuera de los 91, columnas o tipos de las salidas), falta una tabla o falló la escritura. Si falla una validación no escribe nada.
 
 ### Contrato
@@ -229,6 +264,7 @@ assert_frame_equal(antes, despues)   # falla si cambia una columna, un tipo o un
 
 5. Contexto: `python scripts/03_contexto.py --sin-escribir` debe terminar con código 0. Las líneas `AVISO` son informativas; una falla dura termina con código 1.
 6. Métricas por contexto: `python scripts/04_contexto.py --sin-escribir` debe terminar con código 0.
+7. Tabla analítica: `python scripts/03_tabla_analitica.py --sin-escribir` debe terminar con código 0.
 
 ## Estado y siguiente fase
 
@@ -239,20 +275,23 @@ Estado al 20 de octubre de 2026:
 - Contrato v0.2 con 21 decisiones: 17 resueltas y 4 abiertas, todas de Lee (C4, C7, C11 y C20). Tienen un default vigente y falta que Lee las confirme.
 - Lee entregó la especificación de métricas: 34 fichas, que llegan al repo en `especificaciones_metricas/`.
 - Fase 3: `03_contexto.py` está terminado. Sus cuatro tablas pasan las validaciones con los 91 partidos.
-- Fase 4: `04_contexto.py` (tarea 14.6, Yordi) compara 16 métricas por contexto. Sus dos tablas pasan las validaciones y cuadran con las cifras de la fase 3.
+- Tabla analítica: `03_tabla_analitica.py` (Yordi) junta el contexto con las tablas de Lee, Pablo y Pato. Sus dos tablas pasan las validaciones.
+- Fase 4: `04_contexto.py` (tarea 14.6, Yordi) compara 26 métricas por contexto: 16 de las tablas de contexto, 6 de ataque de Lee y 4 de defensa de Pablo. Sus dos tablas pasan las validaciones y cuadran con las cifras de la fase 3.
 
 Fase 3, del lunes 19 de octubre:
 
 | Script | Responsable | Estado |
 | :--- | :--- | :--- |
 | `scripts/03_contexto.py` | Yordi | Terminado |
-| `scripts/03_ataque.py` | Lee | Todavía no está en el repo |
-| `scripts/03_defensa.py` | Pablo | Todavía no está en el repo |
-| `scripts/03_jugadores.py` | Pato | Todavía no está en el repo |
+| `scripts/03_tabla_analitica.py` | Yordi | Terminado |
+| `scripts/03_ataque.py` | Lee | En la rama `B/metricas` |
+| `scripts/03_defensa.py` | Pablo | En la rama `C/visualizacion` |
+| `scripts/03_jugadores.py` | Pato | En la rama `D/narrativa` |
 
 ## Ver también
 
 - `docs/contrato/README.md` y `docs/contrato/cambios.md`: contrato, decisiones e historial de versiones.
 - `docs/spec_01_descarga.md`: criterios de aceptación y pendientes de la descarga.
 - `docs/spec_03_contexto.md`: columnas, reglas y validaciones del contexto.
+- `docs/spec_03_tabla_analitica.md`: columnas, insumos y validaciones de la tabla analítica.
 - `docs/spec_04_contexto.md`: salidas, estadística, lecturas y validaciones de las métricas por contexto.
