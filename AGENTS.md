@@ -58,15 +58,17 @@ Estilo de trabajo:
 | `docs/spec_01_descarga.md` | Especificación de la descarga: criterios de aceptación, alternativas descartadas, pendientes. |
 | `docs/inventario_descarga.md` | Reporte de la última descarga completa (17 de octubre): filas por tabla, cobertura 360, partidos excluidos. |
 | `docs/spec_03_contexto.md` | Especificación del contexto: columnas, desviaciones de las fichas, regla de B1 y criterios de aceptación. |
+| `scripts/04_contexto.py` | Fase 4. Compara cada métrica entre los niveles de seis contextos (marcador, localía, fuerza del rival, minuto, fase y superioridad numérica), con IC por bootstrap de partidos. Escribe `data/processed/`. |
+| `docs/spec_04_contexto.md` | Especificación de las métricas por contexto: salidas, estadística, lecturas, cómo agregar una métrica y criterios de aceptación. |
 | `requirements.txt` | `pandas==3.0.5`, `pyarrow==26.0.0`, `requests==2.33.1`. |
-| `data/` | Local e ignorado por git. `data/raw/` (caché JSON y `parquet/`), `data/interim/` (tablas limpias), `data/processed/` (tablas de la fase 3), `data/diccionario.json` (lo lee `gen_contrato.py`). |
+| `data/` | Local e ignorado por git. `data/raw/` (caché JSON y `parquet/`), `data/interim/` (tablas limpias), `data/processed/` (tablas de las fases 3 y 4), `data/diccionario.json` (lo lee `gen_contrato.py`). |
 
 Fuera del repo, en la carpeta `Local` del equipo:
 
 - `Plan_de_trabajo_Kpumas.md`: el plan. Las secciones 7.1 a 7.3 definen la limpieza; la 12 y la 14 dan el calendario y el reparto por fase.
 - `METRICAS_LEE.md`: la especificación de métricas de Lee (34 fichas). La sección 1 reúne las convenciones comunes. Las mismas fichas llegan al repo en `especificaciones_metricas/`, por la rama de Lee.
 
-De la fase 3 solo existe `scripts/03_contexto.py`. Los demás scripts `03_*.py`, los `04_*.py` y `graficas.py` todavía no están en ninguna rama. Por la rama de Lee llegan `scripts/02_auxiliares.py`, que arma las 4 tablas auxiliares del contrato desde los eventos crudos (se corre después de `02_limpieza.py` con `python scripts/02_auxiliares.py`), y dos scripts de revisión, `control_calidad.py` y `gen_reporte_nulos.py`, que escriben CSV en `data/interim/`.
+De la fase 3 solo existe `scripts/03_contexto.py` y de la fase 4 solo `scripts/04_contexto.py`. Los demás scripts `03_*.py` y `04_*.py`, y `graficas.py`, todavía no están en ninguna rama. Por la rama de Lee llegan `scripts/02_auxiliares.py`, que arma las 4 tablas auxiliares del contrato desde los eventos crudos (se corre después de `02_limpieza.py` con `python scripts/02_auxiliares.py`), y dos scripts de revisión, `control_calidad.py` y `gen_reporte_nulos.py`, que escriben CSV en `data/interim/`.
 
 ## Cómo correr el pipeline
 
@@ -132,6 +134,27 @@ Lee `eventos`, `partidos`, `posiciones`, `team_match_stats` y `team_match_stats_
 - `score_state`, `goal_diff`, `numerical_state` y `rival_strength_tercil` se leen siempre desde el América, también en los eventos y las posesiones del rival.
 - Para contar posesiones hay que excluir las que tienen `es_administrativa` en True (solo traen alineación, medio tiempo o cambios). La posesión válida de B1 es `is_valid_possession`.
 - Códigos de salida: 0 si todo pasó (y se escribió, cuando se pidió); 1 si falló una validación dura, falta un dato o falló la escritura. Si falla una validación no escribe nada. Las validaciones y las desviaciones de las fichas están en `docs/spec_03_contexto.md`.
+
+### Métricas por contexto
+
+```
+python scripts/04_contexto.py                  # escribe en data/processed/
+python scripts/04_contexto.py --sin-escribir   # calcula y valida, sin escribir
+python scripts/04_contexto.py --replicas 200   # menos réplicas, para probar rápido
+```
+
+Lee `contexto_posesiones` y `contexto_partidos` de `data/processed/`, y `contexto_eventos` solo si alguna métrica es por evento, así que va después de `03_contexto.py`. Con 2,000 réplicas tarda unos 3 segundos y produce dos parquet:
+
+| Tabla | Una fila por | Llave |
+| :--- | :--- | :--- |
+| `celdas_contexto` | métrica, contexto y nivel (277) | `metrica`, `contexto`, `nivel` |
+| `comparaciones_contexto` | métrica, contexto, nivel distinto de la referencia y ajuste (218) | `metrica`, `contexto`, `nivel`, `ajuste` |
+
+- Cada celda trae el valor, su IC del 95%, `n_obs`, `n_partidos` e `inestable`. Cada comparación trae la diferencia contra el nivel de referencia, el tamaño de efecto, sus IC y una `lectura`: `diferencia`, `diferencia pequena`, `indicio` o `sin diferencia clara`. Lo que significa cada una está en «Cómo leer las tablas» de `docs/spec_04_contexto.md`.
+- Los IC salen de un bootstrap que remuestrea los 91 partidos con semilla fija (`--semilla`), así que dos corridas dan lo mismo. Las celdas de un solo partido (hoy, el tiempo extra) quedan sin IC.
+- Las métricas por partido solo se cruzan con localía, rival y fase, porque el marcador, el minuto y la superioridad cambian dentro del partido.
+- Para agregar una métrica, quien la propone la calcula en su propio script y la deja en un parquet de `data/processed/` con la llave de su nivel: `match_id` y `possession`, `match_id` e `index`, o solo `match_id`. Si es por evento, el parquet trae también `es_eq`. Luego agrega una entrada a `METRICAS` al inicio de `04_contexto.py`, corre `--sin-escribir` hasta que termine con código 0 y abre el PR a `dev`. Después del congelamiento del análisis, una métrica nueva se acuerda antes con el equipo.
+- Códigos de salida: 0 si todo pasó (y se escribió, cuando se pidió); 1 si falló una validación dura (una columna que no existe o no es numérica, una llave repetida o sin contexto, un partido fuera de los 91, columnas o tipos de las salidas), falta una tabla o falló la escritura. Si falla una validación no escribe nada.
 
 ### Contrato
 
@@ -205,16 +228,18 @@ assert_frame_equal(antes, despues)   # falla si cambia una columna, un tipo o un
 ```
 
 5. Contexto: `python scripts/03_contexto.py --sin-escribir` debe terminar con código 0. Las líneas `AVISO` son informativas; una falla dura termina con código 1.
+6. Métricas por contexto: `python scripts/04_contexto.py --sin-escribir` debe terminar con código 0.
 
 ## Estado y siguiente fase
 
-Estado al 19 de octubre de 2026:
+Estado al 20 de octubre de 2026:
 
 - Fase 1 (descarga): cerrada.
 - Fase 2 (limpieza): terminada por Yordi. Hay 9 tablas en `data/interim/`, 0 duplicados, 0 huérfanos y 89.3% de los eventos con frame 360.
 - Contrato v0.2 con 21 decisiones: 17 resueltas y 4 abiertas, todas de Lee (C4, C7, C11 y C20). Tienen un default vigente y falta que Lee las confirme.
 - Lee entregó la especificación de métricas: 34 fichas, que llegan al repo en `especificaciones_metricas/`.
 - Fase 3: `03_contexto.py` está terminado. Sus cuatro tablas pasan las validaciones con los 91 partidos.
+- Fase 4: `04_contexto.py` (tarea 14.6, Yordi) compara 16 métricas por contexto. Sus dos tablas pasan las validaciones y cuadran con las cifras de la fase 3.
 
 Fase 3, del lunes 19 de octubre:
 
@@ -230,3 +255,4 @@ Fase 3, del lunes 19 de octubre:
 - `docs/contrato/README.md` y `docs/contrato/cambios.md`: contrato, decisiones e historial de versiones.
 - `docs/spec_01_descarga.md`: criterios de aceptación y pendientes de la descarga.
 - `docs/spec_03_contexto.md`: columnas, reglas y validaciones del contexto.
+- `docs/spec_04_contexto.md`: salidas, estadística, lecturas y validaciones de las métricas por contexto.
