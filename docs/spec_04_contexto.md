@@ -51,11 +51,11 @@ La pregunta de la fase 4 es si Jardine ajusta el juego del América según el co
 
 El contexto se pega por la llave desde la tabla de la fase 3 que le toca al nivel de dato: `contexto_posesiones` (más `is_home` de `contexto_partidos` por `match_id`), `contexto_eventos` (carga perezosa, solo si alguna métrica la pide) o `contexto_partidos`. Las métricas por partido solo se cruzan con `is_home`, `rival_strength_tercil` y `stage`. Una fila con el contexto nulo no entra en ese contexto, pero sí en los demás.
 
-### Registro `METRICAS` y las 16 métricas de la fase
+### Registro `METRICAS` y las 26 métricas de la fase
 
 Cada entrada es un `Metrica` (dataclass congelada) con `metrica`, `etiqueta`, `unidad`, `ruta`, `llave`, `columna`, `agregacion`, `filtro` y `peso`.
 
-- `metrica` solo lleva minúsculas, dígitos y guion bajo (`^[a-z0-9_]+$`); `etiqueta` no puede estar vacía. `unidad` es una lista abierta: las de esta fase son `s`, `pases`, `proporcion`, `xG`, `yardas`, `puntos` y `goles`, y una métrica nueva puede traer otra.
+- `metrica` solo lleva minúsculas, dígitos y guion bajo (`^[a-z0-9_]+$`); `etiqueta` no puede estar vacía. `unidad` es una lista abierta: las de esta fase son `s`, `pases`, `proporcion`, `xG`, `yardas`, `puntos`, `goles`, `recepciones`, `progresiones`, `OBV` y `pases por accion`, y una métrica nueva puede traer otra.
 - `filtro` se escribe como dict columna = valor y se guarda inmutable. Un valor puede ser una lista o tupla, y entonces la condición es "columna en la lista". Se aplica después de pegar el contexto, así que puede usar columnas de la tabla de la métrica o de su contexto.
 - `ruta` no puede ser la tabla de contexto de otro nivel (por ejemplo `contexto_partidos` con llave de posesión).
 - `columna` y `peso` tienen que ser numéricas o booleanas.
@@ -81,6 +81,29 @@ Cada entrada es un `Metrica` (dataclass congelada) con `metrica`, `etiqueta`, `u
 | `tiempo_ganando` | `tiempo_ganando` (derivada) | media | `proporcion` | partido |
 | `tiempo_perdiendo` | `tiempo_perdiendo` (derivada) | media | `proporcion` | partido |
 
+Métricas de Lee y Pablo, agregadas el 20-oct (aprobadas por Yordi). Las de Lee y las de Pablo por partido salen de `analitica_posesiones` y `analitica_partidos` (`03_tabla_analitica.py`); las de pérdida salen de `defensa_perdidas` (`03_defensa.py`), que es por evento y solo trae pérdidas del América.
+
+| `metrica` | Tabla y columna | Agregación | Unidad | Filtro |
+| :--- | :--- | :--- | :--- | :--- |
+| `pases_progresivos` | `analitica_posesiones.n_pases_progresivos` | media | `pases` | `es_eq` = True |
+| `pases_rompe_lineas` | `analitica_posesiones.n_pases_rompe_lineas` | media | `pases` | `es_eq` = True |
+| `recepciones_espacio` | `analitica_posesiones.n_recepciones_espacio` | media | `recepciones` | `es_eq` = True |
+| `progresiones_profundas` | `analitica_posesiones.n_deep_progressions` | media | `progresiones` | `es_eq` = True |
+| `obv_neto` | `analitica_posesiones.obv_neto` | media | `OBV` | `es_eq` = True |
+| `cadena_construccion` | `analitica_posesiones.build_up_chain` | proporcion | `proporcion` | `es_eq` = True y `is_valid_possession` = True |
+| `recupera_5s` | `defensa_perdidas.regain_5s` | proporcion | `proporcion` | ninguno (todas son del América) |
+| `contrapresion` | `defensa_perdidas.con_contrapresion` | proporcion | `proporcion` | ninguno (todas son del América) |
+| `ppda` | `analitica_partidos.ppda_juego_abierto` | media | `pases por accion` | partido |
+| `altura_presion` | `analitica_partidos.press_height` | media | `yardas` | partido |
+
+Notas de estas 10:
+
+- `pases_rompe_lineas` y `recepciones_espacio` vienen del 360: la posesión sin ningún frame queda nula y no entra (8,859 y 9,161 de 9,503 posesiones).
+- `cadena_construccion` solo se mide en posesiones válidas porque Lee solo lo calcula ahí.
+- `recupera_5s` y `contrapresion` dan el `AVISO` de métrica de evento sin `es_eq`; no afecta, porque `defensa_perdidas` solo trae pérdidas del América. La contrapresión de Pablo coincide con la de StatsBomb en 37 de 91 partidos (su propio aviso), así que se lee con cuidado.
+- `ppda` es la variante de juego abierto, la que Pablo encontró más cercana a StatsBomb (razón mediana 0.94, correlación 0.94). Un PPDA más alto es menos presión.
+- Se dejaron fuera, por repetir lo mismo: conducciones progresivas (se traslapan con pases progresivos y progresiones profundas), % de presión alta (casi igual a la altura de presión) y altura de la línea defensiva (correlación 0.77 con la altura de presión).
+
 Columnas derivadas, agregadas al cargar la tabla para que `columna` siga siendo un nombre de columna (solo para estas 16 métricas):
 
 - `contexto_posesiones`: `con_tiro` = `n_tiros` > 0 (cuenta penales; el `xg` no los cuenta); `inicio_ultimo_tercio` = `third_inicio` es `final_third`.
@@ -90,8 +113,8 @@ Puntos y goles: `goles_eq` y `goles_rival` vienen de los periodos 1 a 4 de C2, a
 
 ### Cómo agrega una métrica alguien del equipo
 
-1. Calcula la columna en su propio script y la deja en un parquet de `data/processed/` con la llave de su nivel (y `es_eq` si es por evento). `derivar` es solo para las 16 métricas de esta fase; las métricas nuevas no se calculan dentro de `04_contexto.py`.
-2. Agrega una entrada a `METRICAS` en su rama, por ejemplo `Metrica("pases_progresivos", "Pases progresivos por posesión", "pases", "data/processed/ataque_posesiones.parquet", ("match_id", "possession"), "n_pases_progresivos", "media", {"es_eq": True})`.
+1. Las métricas de Lee y Pablo ya están en `analitica_posesiones` y `analitica_partidos` (salen de `03_tabla_analitica.py`), así que se toman de ahí. Un parquet propio en `data/processed/`, con la llave de su nivel (y `es_eq` si es por evento), solo hace falta para una métrica que no esté en esas tablas. `derivar` es solo para las 16 métricas de esta fase; las métricas nuevas no se calculan dentro de `04_contexto.py`.
+2. Agrega una entrada a `METRICAS` en su rama, por ejemplo `Metrica("pases_progresivos", "Pases progresivos por posesión", "pases", "data/processed/analitica_posesiones.parquet", ("match_id", "possession"), "n_pases_progresivos", "media", {"es_eq": True})`.
 3. Corre `python scripts/04_contexto.py --sin-escribir` hasta que termine con código 0. Después abre el PR a `dev` y, ya integrado, se corre `python scripts/04_contexto.py` para regenerar las dos salidas.
 4. El análisis se congela según el plan. Después del congelamiento, una métrica nueva se acuerda antes con el equipo.
 
@@ -137,8 +160,8 @@ Puntos y goles: `goles_eq` y `goles_rival` vienen de los periodos 1 a 4 de C2, a
 
 ## Fuera de alcance
 
-- Métricas de ataque avanzado, presión, defensa y jugadores — son de Lee, Pablo y Pato; entran después como entradas nuevas de `METRICAS`.
-- Leer cualquier cosa de `Local/` o salidas de otros integrantes — los insumos son solo las tablas de contexto de la fase 3.
+- Calcular métricas de ataque avanzado, presión, defensa y jugadores — son de Lee, Pablo y Pato. Las 10 que se compararon entran como entradas de `METRICAS` desde sus tablas, sin recalcularlas.
+- Leer cualquier cosa de `Local/` — los insumos son las tablas de contexto de la fase 3 y las tablas que declare `METRICAS`.
 - Gráficas y porcentajes — las proporciones quedan de 0 a 1 y las gráficas son de Pablo.
 - Corrección por comparaciones múltiples — la lectura es descriptiva; la sección «Cómo leer las tablas» da la cifra de falsos positivos esperados para la narrativa.
 - Comparar contra el grupo de contraste (Ortiz y Solari) — las tablas de la fase 3 son solo del América con Jardine.
@@ -196,6 +219,14 @@ celdas, comparaciones, fallas = c4.calcular(c4.METRICAS, c4.Tablas(), 200, 1)
 - Quitar o fundir `ET` con `90+` — cambiaría las categorías de la fase 3; se deja la celda con su n y sin IC.
 - Otras convenciones de puntos en liguilla (por ejemplo, contar el global o dar 2 puntos al que avanza en penales) — ninguna es estándar; 3/1/0 por partido es la única que se compara igual en fase regular y liguilla.
 - Umbral 0.1 en lugar de la categoría `diferencia pequena` — bajaría la vara para todo; la categoría aparte deja ver los cambios chicos sin mezclarlos con los grandes.
+
+## Resultado con las 26 métricas (20-oct, v0.3)
+
+Código 0 en 2 s. `celdas_contexto`: 467 filas; `comparaciones_contexto`: 370 (272 simples de las 17 métricas de posesión, 32 de las 2 de pérdida, 38 ajustadas `mitad_x_tercil` y 28 de las 7 por partido). De las 351 que tienen IC (las 19 de `ET` no), unas 18 excluirían el 0 por puro azar.
+
+- Lecturas: 25 `diferencia`, 84 `diferencia pequena`, 1 `indicio` (recuperación en 5 s en inferioridad, 6 partidos) y 260 `sin diferencia clara`. Las 16 métricas originales no cambian.
+- Nuevas `diferencia`: en superioridad numérica, más pases progresivos (+0.41 por posesión) y más recepciones en espacio (+1.2); en el 90+, menos recepciones en espacio (−1.6) y menos contrapresión (−9.7 puntos); las cadenas de construcción suben de 0-15 al resto del partido (+11 a +17 puntos); la recuperación en 5 s baja en 15-30 y 45+ (−5.5 y −5.7 puntos); el PPDA sube contra rivales fuertes (+3.0) y en la fase final (+3.7), es decir, presiona menos; de local presiona 3.5 yardas más arriba.
+- Las celdas, los n y las 16 métricas originales cuadran con la corrida v0.2.
 
 ## Resultado de la corrida (20-oct, v0.2)
 

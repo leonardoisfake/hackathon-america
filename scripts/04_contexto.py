@@ -47,6 +47,9 @@ PREFIJO_TMP = ".tmp_04_contexto_"  # distinto de .tmp_contexto_ de 03, que borra
 POSESIONES = "data/processed/contexto_posesiones.parquet"
 PARTIDOS = "data/processed/contexto_partidos.parquet"
 EVENTOS = "data/processed/contexto_eventos.parquet"
+ANALITICA_POS = "data/processed/analitica_posesiones.parquet"  # sale de 03_tabla_analitica.py
+ANALITICA_PAR = "data/processed/analitica_partidos.parquet"
+PERDIDAS = "data/processed/defensa_perdidas.parquet"  # sale de 03_defensa.py (Pablo); solo perdidas del America
 
 # parametros de la estadistica
 REPLICAS = 2000
@@ -84,6 +87,7 @@ class Metrica:
 
 
 _POS = ("match_id", "possession")
+_EVT = ("match_id", "index")
 _PAR = ("match_id",)
 _EQ, _RIVAL = {"es_eq": True}, {"es_eq": False}
 
@@ -112,6 +116,24 @@ METRICAS = [
     Metrica("tiempo_ganando", "Parte del partido ganando", "proporcion", PARTIDOS, _PAR, "tiempo_ganando", "media"),
     Metrica("tiempo_perdiendo", "Parte del partido perdiendo", "proporcion", PARTIDOS, _PAR, "tiempo_perdiendo",
             "media"),
+    # Lee (ataque), desde la tabla analitica
+    Metrica("pases_progresivos", "Pases progresivos por posesión", "pases", ANALITICA_POS, _POS,
+            "n_pases_progresivos", "media", _EQ),
+    Metrica("pases_rompe_lineas", "Pases que rompen líneas por posesión", "pases", ANALITICA_POS, _POS,
+            "n_pases_rompe_lineas", "media", _EQ),
+    Metrica("recepciones_espacio", "Recepciones en espacio por posesión", "recepciones", ANALITICA_POS, _POS,
+            "n_recepciones_espacio", "media", _EQ),
+    Metrica("progresiones_profundas", "Progresiones profundas por posesión", "progresiones", ANALITICA_POS, _POS,
+            "n_deep_progressions", "media", _EQ),
+    Metrica("obv_neto", "OBV neto por posesión", "OBV", ANALITICA_POS, _POS, "obv_neto", "media", _EQ),
+    Metrica("cadena_construccion", "Posesiones válidas que son cadena de construcción", "proporcion", ANALITICA_POS,
+            _POS, "build_up_chain", "proporcion", {"es_eq": True, "is_valid_possession": True}),
+    # Pablo (defensa): por perdida del America y por partido
+    Metrica("recupera_5s", "Pérdidas recuperadas en 5 s", "proporcion", PERDIDAS, _EVT, "regain_5s", "proporcion"),
+    Metrica("contrapresion", "Pérdidas con contrapresión", "proporcion", PERDIDAS, _EVT, "con_contrapresion",
+            "proporcion"),
+    Metrica("ppda", "PPDA en juego abierto", "pases por accion", ANALITICA_PAR, _PAR, "ppda_juego_abierto", "media"),
+    Metrica("altura_presion", "Altura media de la presión", "yardas", ANALITICA_PAR, _PAR, "press_height", "media"),
 ]
 
 NIVEL_DATO = {("match_id", "possession"): "posesion", ("match_id", "index"): "evento", ("match_id",): "partido"}
