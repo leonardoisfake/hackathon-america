@@ -84,7 +84,8 @@ FUENTES = {
     "partidos": Fuente("data/processed/analitica_partidos.parquet", "03_tabla_analitica.py", "Yordi", (
         "match_id", "torneo", "stage", "es_final", "resultado", "goles_eq", "goles_rival", "presiones",
         "presiones_altas_40m", "ppda_juego_abierto", "perdidas", "perdidas_regain_5s", "formacion_1t",
-        "xg_chain_eq") + tuple(f"{m}_{o}_{lado}" for m in ("tiros", "goles", "xg")
+        "xg_chain_eq", "is_home", "rival_strength_tercil", "minutos_ganando", "minutos_empatando",
+        "minutos_perdiendo") + tuple(f"{m}_{o}_{lado}" for m in ("tiros", "goles", "xg")
                                for o in ("juego_abierto", "corner", "tiro_libre", "banda")
                                for lado in ("favor", "contra"))),
     "posesiones": Fuente("data/processed/analitica_posesiones.parquet", "03_tabla_analitica.py", "Yordi", (
@@ -133,8 +134,8 @@ PUERTAS = [
      "Formación inicial, zonas y perfil de los jugadores con más minutos."),
     ("decisiones", 7, "Decisiones", "Qué se puede decidir con esto",
      "Indicadores, métricas y recomendaciones para el cuerpo técnico."),
-    ("limitaciones", 8, "Limitaciones", "Limitaciones y cierre",
-     "Qué no cubren los datos y hasta dónde llegan las conclusiones."),
+    ("limitaciones", 8, "Conclusiones", "Conclusiones y limitaciones",
+     "Qué respondemos al reto y hasta dónde llegan los datos."),
     ("glosario", 9, "Glosario", "Glosario y referencias",
      "Los términos que usa el reporte y de dónde salen las imágenes."),
 ]
@@ -197,7 +198,7 @@ SIN_ATRIBUCION = [
     (re.compile(r"\b(?:Yordi|Lee|Pablo|Pato) agrupa\b"), "Se agrupan"),
     (re.compile(r"\bsus fases\b"), "las fases"),
     (re.compile(r"\bFalta que (?:Yordi|Lee|Pablo|Pato)(?:,? (?:y )?(?:Yordi|Lee|Pablo|Pato))* lo confirmen\b"),
-     "Se tomó la lectura de 10 s entre intentos"),
+     "El reporte usa 10 s como tiempo máximo entre un intento y el siguiente"),
 ]
 # marcas de trabajo interno del framework (pendientes, numeros del plan, scripts y columnas) que no van al HTML
 SIN_MARCAS = [
@@ -311,6 +312,14 @@ PIE_CANCHA = ("Una columna por {columnas}. Arriba, qué parte de los pases de ca
               "(recuperaciones e intercepciones) y la punteada, el promedio de los {{n}} partidos. "
               "La línea marca dónde recupera el balón, no dónde presiona; por eso no coincide con la altura de presión de "
               "la tarjeta de localía. El América ataca de izquierda a derecha.")
+# regla de Cambio_Partidos.py: un nivel con menos de estos partidos o minutos en un torneo no se dibuja
+MIN_PARTIDOS_CANCHA = 5
+MIN_MINUTOS_CANCHA = 90
+# solo si hay pestañas por torneo: la vista de 91 es la de las tarjetas y cada torneo tiene menos datos
+PIE_CANCHA_TORNEOS = ("La pestaña «{n} partidos» es la vista de las cifras de las tarjetas. Cada torneo tiene menos "
+                      "datos, así que sus mapas se leen con cautela; la línea punteada es la misma en todas las "
+                      f"pestañas. Un nivel con menos de {MIN_PARTIDOS_CANCHA} partidos o {MIN_MINUTOS_CANCHA} minutos "
+                      "en un torneo no se dibuja y su columna dice «pocos datos».")
 ALT_CANCHA = ("Tres filas de canchas, una columna para {columnas}: porcentaje de pases del América por tercio, "
               "tiros de los dos equipos con su xG y calor de las acciones defensivas del América")
 CANCHAS = (
@@ -431,7 +440,7 @@ RECORRIDO = "El recorrido de una posesión"  # titulo de la fila con varias fase
 # 03_ataque.py no filtra por jugadores visibles y el contrato (C19) deja la regla provisional como informativa
 SIN_FILTRO_360 = ("En los frames donde se ven pocos jugadores, los conteos del 360 pueden quedarse cortos, porque no "
                   "se filtró por número de jugadores visibles.")
-NOTA_OBJETO = {"Fase de presión": "Se tomó la lectura de 10 s entre intentos."}
+NOTA_OBJETO = {"Fase de presión": "El reporte usa 10 s como tiempo máximo entre un intento y el siguiente."}
 # terminos del glosario (T9.3): lo que el reporte usa sin explicar en cada puerta
 TERMINOS = [
     ["xG", "Goles esperados: la probabilidad de que un tiro termine en gol según dónde y cómo se tiró. Sumados, dicen "
@@ -446,6 +455,10 @@ TERMINOS = [
     ["IC 95%", "Intervalo de confianza del 95%, sacado de remuestrear partidos completos. Si el intervalo de una "
                "diferencia no toca el 0, la diferencia se sostiene con estos datos."],
     ["Rival fuerte, medio o débil", DEF_RIVAL],
+    ["360 (frame)", "Foto de la posición de los jugadores visibles en el momento de cada evento. Sin frame no se "
+                    "pueden contar líneas rotas ni recepciones en espacio."],
+    ["Tamaño de efecto", "La diferencia medida contra la variación normal de la métrica, para comparar métricas con "
+                         "unidades distintas. Desde {efecto_min} el reporte la cuenta como diferencia."],
 ]
 # orden de los niveles en la tarjeta, igual que las columnas de su figura de cancha; los demas, como NIVELES
 ORDEN_TARJETA = {
@@ -684,13 +697,17 @@ def tabla_de(seccion):
 
 def tabla_md(encabezados, filas, ids=None, etiqueta="Tabla"):
     # Tabla de un md (framework, LEEME o textos del equipo); ids opcionales por fila (anclas de las definiciones).
-    th = "".join(f'<th scope="col">{inline_md(h)}</th>' for h in encabezados)
+    # encabezado alineado como su columna: a la derecha si todas sus celdas empiezan con cifra
+    num_col = {j for j in range(1, len(encabezados))
+               if filas and all(len(f) > j and re.match(r"^[+\-−]?\d", f[j].strip()) for f in filas if f)}
+    th = "".join(f'<th scope="col"{NUM if j in num_col else ""}>{inline_md(h)}</th>' for j, h in enumerate(encabezados))
     cuerpo = ""
     for i, f in enumerate(filas):
         if not f:
             continue
         id_attr = f' id="{ids[i]}"' if ids and i < len(ids) and ids[i] else ""
-        celdas = [f'<th scope="row">{inline_md(f[0])}</th>'] + [f"<td>{inline_md(v)}</td>" for v in f[1:]]
+        celdas = [f'<th scope="row">{inline_md(f[0])}</th>'] + [
+            f"<td{NUM if re.match(r'^[+\-−]?\d', v.strip()) else ''}>{inline_md(v)}</td>" for v in f[1:]]
         cuerpo += f"<tr{id_attr}>{''.join(celdas)}</tr>"
     return (f'<div class="tabla-caja" role="region" tabindex="0" aria-label="{esc(etiqueta)}"><table class="doc">'
             f'<thead><tr>{th}</tr></thead><tbody>{cuerpo}</tbody></table></div>')
@@ -698,8 +715,9 @@ def tabla_md(encabezados, filas, ids=None, etiqueta="Tabla"):
 
 def md_a_html(texto, nivel_base=3):
     # Un md completo a HTML: encabezados desde h{nivel_base}, parrafos, listas y tablas.
-    partes = []
+    partes, usadas = [], set()
     for s in parsear_md(texto):
+        nombre = s.titulo  # la region de cada tabla lleva el titulo de su seccion o su primera columna
         if s.titulo:
             n = min(nivel_base + s.nivel - 1, 4)
             partes.append(f"<h{n}>{inline_md(s.titulo)}</h{n}>")
@@ -709,7 +727,10 @@ def md_a_html(texto, nivel_base=3):
             elif b[0] == "lista":
                 partes.append("<ul>" + "".join(f"<li>{inline_md(x)}</li>" for x in b[1]) + "</ul>")
             else:
-                partes.append(tabla_md(b[1], b[2]))
+                et = re.sub(r"[`*]", "", nombre or b[1][0])
+                et = f"{et} · {re.sub(r'[`*]', '', b[1][0])}" if et in usadas else et  # dos tablas en una seccion
+                usadas.add(et)
+                partes.append(tabla_md(b[1], b[2], etiqueta=et))
     return "".join(partes)
 
 
@@ -1041,11 +1062,11 @@ def incrustar_recurso(ruta):
 
 
 def rutas_figura(figuras_dir, fig, torneos):
-    # (torneo, ruta) de cada imagen de la figura que existe; las de contexto son una sola, en la raiz.
-    if fig.contexto:
-        ruta = figuras_dir / fig.archivo
-        return [("", ruta)] if ruta.is_file() else []
+    # (torneo, ruta) de cada imagen de la figura que existe; las de contexto tienen ademas la de los 91 partidos en la
+    # raiz, con torneo "".
     rutas = []
+    if fig.contexto and (figuras_dir / fig.archivo).is_file():
+        rutas.append(("", figuras_dir / fig.archivo))
     for torneo in torneos:
         carpeta = carpeta_torneo(figuras_dir, torneo)
         ruta = carpeta / fig.archivo.format(torneo=torneo.replace(" ", "_")) if carpeta else None
@@ -1136,7 +1157,7 @@ class Reporte:
             ("sup-transicion", "Transición: 5 s", f"<b>Transición:</b> {umbral('Transición')}."),
             ("sup-tercio-final", "Tercio final",
              f"<b>Tercio final:</b> x ≥ {TERCIO_FINAL_X:g} yd, el último tercio de una cancha de {LARGO_CANCHA_YD} yd."),
-            ("sup-rival", "Fuerza del rival", f"<b>Rival fuerte, medio o débil:</b> {esc(DEF_RIVAL)}"),
+            ("sup-rival", "Rival por tercio de xG", f"<b>Rival fuerte, medio o débil:</b> {esc(DEF_RIVAL)}"),
             ("sup-desde-america", "Desde el América",
              "<b>Marcador y superioridad numérica:</b> se leen desde el América, también en las jugadas del rival. "
              "La superioridad solo cuenta expulsiones de jugadores que estaban en cancha."),
@@ -1241,9 +1262,11 @@ class Reporte:
                 f'</thead><tbody>{cuerpo}</tbody>{tfoot}</table></div>{nota_html}</figure>')
 
     def figura(self, fig, pie=None):
-        # Figura por torneo con pestañas, o de una sola imagen (las de contexto); lo que falta se omite.
+        # Figura con una pestaña por torneo; las de contexto llevan antes la de los 91 partidos (torneo ""). Lo que
+        # falta se omite.
         rutas = dict(self.rutas_fig[fig.archivo])
-        torneos = [""] if fig.contexto else self.c["torneos"]
+        torneos = ([""] if fig.contexto else []) + list(self.c["torneos"])
+        todos = f"{self.c['n']} partidos"
         cod, ancla = self.cod_fig.get(fig.archivo, ("F?", ""))
         grupo = f"{cod} {fig.titulo}"
         paneles = []
@@ -1261,17 +1284,21 @@ class Reporte:
                 continue
             self.incrustadas.append((cod, torneo or "(raiz)", archivo))
             self.peso_grupo[grupo] = self.peso_grupo.get(grupo, 0) + len(uri)
-            de = f", {esc(torneo)}" if torneo else ""
+            et = torneo or todos
             img = (f'<div class="marco"><img src="{uri}" width="{ancho}" height="{alto}" loading="lazy" '
-                   f'decoding="async" alt="{esc(fig.titulo)}{de}. {esc(fig.alt)}."></div>')
-            paneles.append(img if fig.contexto else
-                           f'<div class="panel" id="{ancla}-p{i}" data-torneo="{esc(torneo)}">'
-                           f'<p class="panel-torneo">{esc(torneo)}</p>{img}</div>')
+                   f'decoding="async" alt="{esc(fig.titulo)}, {esc(et)}. {esc(fig.alt)}."></div>')
+            paneles.append(f'<div class="panel" id="{ancla}-p{i}" data-torneo="{esc(et)}">'
+                           f'<p class="panel-torneo">{esc(et)}</p>{img}</div>')
         if not paneles:
             return ""
         pie = esc((pie or fig.pie).replace("{n}", str(self.c["n"])))
-        cuerpo = paneles[0] if fig.contexto else (f'<div class="pestanas" id="{ancla}-pestanas" data-pestanas='
-                                                  f'"Torneo de {esc(fig.titulo.lower())}">{"".join(paneles)}</div>')
+        if len(paneles) == 1:
+            cuerpo = paneles[0]
+        else:
+            de = "Partidos" if fig.contexto else "Torneo"
+            inicio = f' data-inicio="{esc(todos)}"' if fig.contexto else ""  # pestaña con que abren las de contexto
+            cuerpo = (f'<div class="pestanas" id="{ancla}-pestanas" data-pestanas="{de} de {esc(fig.titulo.lower())}"'
+                      f'{inicio}>{"".join(paneles)}</div>')
         base = self.base_html(BASE_FIGURA.get(fig.archivo, ()), cod, ancla, fig.puerta)
         return (f'<figure class="fig" id="{ancla}"><figcaption><span class="codigo">{cod}</span> {esc(fig.titulo)}'
                 f'</figcaption><p class="pie">{pie}</p>{base}{cuerpo}</figure>')
@@ -1318,7 +1345,7 @@ class Reporte:
 </div>
 <div class="marcador">
 <p class="celda"><b>{c['G']}</b><span>ganados</span></p>
-<p class="celda"><b>{c['E']}</b><span>empates</span></p>
+<p class="celda"><b>{c['E']}</b><span>empatados</span></p>
 <p class="celda"><b>{c['P']}</b><span>perdidos</span></p>
 </div>
 <dl class="filas">
@@ -1353,12 +1380,10 @@ class Reporte:
                          nota="PJ: partidos jugados, la n de cada fila. G, E y P salen de los goles, con tiempo extra "
                               "y sin la tanda de penales.", base=("def-fase-del-torneo", "sup-penales", "term-xg"))
         cuerpo = self.cifra(f"{c['n_finales']}<small> finales</small>",
-                            f"({c['finales']} partidos de ida y vuelta) en {len(c['torneos'])} torneos, del "
-                            f"{esc(c['torneos'][0])} al {esc(c['torneos'][-1])}. "
-                            f"Entran los {c['n']} partidos que dirigió André Jardine con el América: {c['regular']} "
-                            f"de fase regular y {c['liguilla']} de liguilla.")
-        cuerpo += t11
+                            f"jugadas a ida y vuelta ({c['finales']} partidos): una en cada uno de los "
+                            f"{len(c['torneos'])} torneos.")
         cuerpo += self.pendiente("pato_introduccion")
+        cuerpo += t11
         return self.puerta("pregunta", cuerpo)
 
     def s_marco(self):
@@ -1409,7 +1434,7 @@ class Reporte:
             grupos.append('<h4 class="marco-grupo">Otras</h4><ul class="objetos">'
                           + "".join(f"<li>{tarjeta(x)}</li>" for x in resto) + "</ul>")
         intro = ('<p class="marco-intro">El reporte lee al América de Jardine con objetos y supuestos que el '
-                 'equipo fijó antes de medir. Cada figura y cada tabla dice abajo en cuáles se basa.</p>')
+                 'equipo fijó antes de medir.</p>')
         datos = (f'<p class="marco-datos">{c["n"]} partidos ({c["regular"]} de fase regular y {c["liguilla"]} de '
                  f'liguilla) · Hudl StatsBomb, eventos y 360 · {porciento(c["pct_frame"])} de los eventos con frame '
                  f'360 · {entero(c["posesiones_sin_admin"])} posesiones de juego</p>')
@@ -1473,10 +1498,10 @@ class Reporte:
                        "En esta versión ninguna celda queda inestable.")
         metodo = f"""<details class="pliegue" id="como-leer"><summary>Cómo comparamos por contexto</summary>
 <p>Cada métrica se calcula en cada nivel de cada contexto y se compara contra un nivel de referencia, por ejemplo perdiendo contra empatando o de local contra de visitante. Los intervalos salen de un bootstrap que remuestrea partidos completos: {entero(p04['REPLICAS'])} réplicas con semilla fija ({p04['SEMILLA']}), así que dos corridas dan lo mismo. Todos los intervalos son del {self.ic}%.</p>
-<p>Además de la diferencia, cada comparación trae un tamaño de efecto que no depende de la unidad: g de Hedges para las medias, h de Cohen para las proporciones y la diferencia entre la MAD para las medianas. Cada una recibe una de estas lecturas:</p>
+<p>Además de la diferencia, cada comparación trae un tamaño de efecto que no depende de la unidad: g de Hedges para las medias, h de Cohen para las proporciones y, para las medianas, la diferencia de medianas dividida entre su dispersión (MAD). Cada una recibe una de estas lecturas:</p>
 <ul class="lecturas">
 <li>{marca_lectura('diferencia')} El intervalo de la diferencia no toca el 0, el efecto es de al menos {p04['EFECTO_MIN']} en valor absoluto y las dos celdas son estables. Es lo que el reporte afirma.</li>
-<li>{marca_lectura('diferencia pequena')} El intervalo no toca el 0 y las dos celdas son estables, pero el efecto es menor que {p04['EFECTO_MIN']}. El cambio es real y chico frente a la variación entre posesiones o partidos.</li>
+<li>{marca_lectura('diferencia pequena')} El intervalo no toca el 0 y las dos celdas son estables, pero el efecto es menor que {p04['EFECTO_MIN']}: un cambio chico frente a la variación entre posesiones o partidos, que se lee como pista.</li>
 <li>{marca_lectura('indicio')} El intervalo no toca el 0 y el efecto llega a {p04['EFECTO_MIN']}, pero alguna celda es inestable. Señala algo que revisar, sin afirmarlo.</li>
 <li>{marca_lectura('sin diferencia clara')} Cualquier otro caso. No prueba que no haya cambio: solo que con estos datos no se puede afirmar.</li>
 </ul>
@@ -1497,14 +1522,11 @@ class Reporte:
         goles = c["gf"] if lado == "favor" else c["gc"]
         pen, auto = c[f"penales_{lado}"], c[f"autogoles_{lado}"]
         orig = int(total["goles"])
-        nota = (f"Tiros: la n de cada fila. La fila de penales no se suma al total. "
-                f"{entero(orig)} goles por origen, {entero(pen['goles'])} de penal")
-        if lado == "favor":
-            nota += f" y {entero(auto)} autogoles del rival dan los {entero(goles)} goles a favor"
-        elif auto:
-            nota += f" y {entero(auto)} autogoles del América dan los {entero(goles)} goles en contra"
-        else:
-            nota += f" dan los {entero(goles)} goles en contra"
+        partes = [f"{entero(orig)} goles por origen", f"{entero(pen['goles'])} de penal"]
+        if auto:
+            partes.append(f"{entero(auto)} autogoles del {'rival' if lado == 'favor' else 'América'}")
+        nota = (f"Tiros: la n de cada fila. La fila de penales no se suma al total. {y_lista(partes)} dan los "
+                f"{entero(goles)} goles {'a favor' if lado == 'favor' else 'en contra'}")
         suma = orig + pen["goles"] + auto
         if suma == goles:
             nota += "."
@@ -1620,15 +1642,43 @@ class Reporte:
 
     def figura_cancha(self, fig):
         # La primera figura de cancha lleva el pie completo; las siguientes solo dicen sus columnas y remiten a ella.
+        # Con pestañas por torneo, cada una dice ademas que niveles no se dibujan por pocos datos.
+        por_torneo = len(self.rutas_fig[fig.archivo]) > 1
+        pocos = self.pocos_datos(fig.contexto) if por_torneo else ""
         primera = self.primera_cancha
         if primera is None:
-            html_fig = self.figura(fig)
+            html_fig = self.figura(fig, pie=fig.pie + (f" {PIE_CANCHA_TORNEOS}" if por_torneo else "") + pocos)
             if html_fig:
                 self.primera_cancha = self.cod_fig[fig.archivo][0]
             return html_fig
         corto = (f"Una columna por {COLUMNAS_CANCHA[fig.contexto]}. Se lee igual que {primera}: pases arriba, "
                  f"tiros en medio y acciones defensivas abajo, con la altura media de recuperación.")
-        return self.figura(fig, pie=corto)
+        return self.figura(fig, pie=corto + pocos)
+
+    def pocos_datos(self, ctx):
+        # « En Clausura 2025, rival débil no se dibuja (4 partidos, 416 min).», con la regla de MIN_*_CANCHA.
+        p = self.d.partidos
+        mins = {k: p[f"minutos_{k}"].astype("float64").fillna(0) for k in ("perdiendo", "empatando", "ganando")}
+        total = sum(mins.values())
+        if ctx == "score_state":
+            niveles = {k: (m > 0, m) for k, m in mins.items()}
+        elif ctx == "is_home":
+            local = p["is_home"].astype("boolean").fillna(False)
+            niveles = {"local": (local, total), "visitante": (~local, total)}
+        elif ctx == "rival_strength_tercil":
+            t = p["rival_strength_tercil"].astype("string")
+            niveles = {f"rival {k}": (t == k, total) for k in ORDEN_TARJETA[ctx]}
+        else:
+            return ""
+        frases = []
+        for torneo in self.c["torneos"]:
+            en = (p["torneo"].astype("string") == torneo).fillna(False)
+            for nivel, (mascara, minutos) in niveles.items():
+                sel = (en & mascara.fillna(False)).to_numpy(dtype=bool)
+                n, m = int(sel.sum()), float(minutos[sel].sum())
+                if n < MIN_PARTIDOS_CANCHA or m < MIN_MINUTOS_CANCHA:
+                    frases.append(f"en {torneo}, {nivel} ({n} partidos, {m:,.0f} min)")
+        return f" No se dibuja por pocos datos: {y_lista(frases)}." if frases else ""
 
     def titular(self, ctx, r, m):
         # «Perdiendo, el América tiene más el balón»; sin frase propia, «…, la métrica sube».
@@ -1695,7 +1745,9 @@ class Reporte:
             return 1000 * (v - lo) / (hi - lo)
 
         ticks = [lo + i * paso for i in range(int(round((hi - lo) / paso)) + 1)]
-        banda = f'<rect x="{x(-umbral):.1f}" y="0" width="{x(umbral) - x(-umbral):.1f}" height="24" class="f-banda"/>'
+        banda = (f'<rect x="{x(-umbral):.1f}" y="0" width="{x(umbral) - x(-umbral):.1f}" height="24" class="f-banda"/>'
+                 + "".join(f'<line x1="{x(u):.1f}" x2="{x(u):.1f}" y1="0" y2="24" class="f-umbral" '
+                           f'vector-effect="non-scaling-stroke"/>' for u in (-umbral, umbral)))
         rejilla = "".join(f'<line x1="{x(t):.1f}" x2="{x(t):.1f}" y1="0" y2="24" class="f-rejilla" '
                           f'vector-effect="non-scaling-stroke"/>' for t in ticks if abs(t) > 1e-9)
         cero = f'<line x1="{x(0):.1f}" x2="{x(0):.1f}" y1="0" y2="24" class="f-cero" vector-effect="non-scaling-stroke"/>'
@@ -1801,8 +1853,8 @@ class Reporte:
         cuerpo = self.cifra(esc(c["formacion"]),
                             f"es la formación inicial más usada: {c['formacion_n']} de {c['n']} partidos "
                             f"({porciento(razon(c['formacion_n'], c['n']))}).")
-        cuerpo += self.figuras_de(6)
         cuerpo += self.pendiente("pato_jugadores")
+        cuerpo += self.figuras_de(6)
         return self.puerta("jugadores", cuerpo)
 
     def s_decisiones(self):
@@ -1811,9 +1863,11 @@ class Reporte:
     def s_limitaciones(self):
         c, d = self.c, self.d
         sin_frame = 1 - c["pct_frame"]
-        cuerpo = self.cifra(porciento(sin_frame),
-                            f"de los eventos no traen frame 360: {entero(c['eventos_cob'] - c['con_frame'])} de "
-                            f"{entero(c['eventos_cob'])}.")
+        # primero la respuesta al reto; despues la cifra y la lista de limites
+        cuerpo = self.pendiente("pato_cierre")
+        cuerpo += self.cifra(porciento(sin_frame),
+                             f"de los eventos no traen frame 360: {entero(c['eventos_cob'] - c['con_frame'])} de "
+                             f"{entero(c['eventos_cob'])}.")
         presion = next((f[2] for f in d.framework.donde[1]
                         if len(f) > 2 and f[0].strip().lower() == "fase de presión"), None)
         presion_txt = (inline_md(presion) if presion else
@@ -1839,13 +1893,13 @@ class Reporte:
             cuerpo += texto[:-len("</ul></div>")] + lis + "</ul></div>"  # una sola lista con la del md
         else:
             cuerpo += texto + f'<ul class="limites">{lis}</ul>'
-        cuerpo += self.pendiente("pato_cierre")
         return self.puerta("limitaciones", cuerpo)
 
     def s_glosario(self):
         # La tabla de terminos del reporte (T9.1), abierta, y las fuentes de las imagenes tomadas de internet.
         cod, ancla = self.codigo("T", 9)
-        t = tabla_md(["Término", "Qué quiere decir"], TERMINOS, ids=[f"term-{slug(x)}" for x, _ in TERMINOS],
+        terminos_txt = [[t, d.format(efecto_min=self.d.p04["EFECTO_MIN"])] for t, d in TERMINOS]
+        t = tabla_md(["Término", "Qué quiere decir"], terminos_txt, ids=[f"term-{slug(x)}" for x, _ in TERMINOS],
                      etiqueta=f"{cod} Términos")
         terminos = (f'<h3 id="terminos">Términos del reporte</h3>'
                     f'<figure class="tabla" id="{ancla}"><figcaption><span class="codigo">{cod}</span> Términos'
@@ -2054,6 +2108,13 @@ def verificar(doc, reporte, estricto, n_comps):
     if sin_base or base_rota or sin_traza:
         fallas.append(f"traza al marco: sin objetos {sin_base + sin_traza}; ids que no existen {base_rota}")
     info["traza"] = not (sin_base or base_rota or sin_traza)
+    repetidas = []
+    for linea in re.findall(r'<p class="base">(.*?)</p>', texto, re.S):
+        ets = re.findall(r">([^<]+)</a>", linea)
+        repetidas += sorted({e for e in ets if ets.count(e) > 1})
+    if repetidas:
+        fallas.append(f"«Se basa en» con etiquetas repetidas: {sorted(set(repetidas))}")
+    info["etiquetas"] = not repetidas
     if estricto and reporte.pendientes:
         fallas.append(f"--estricto: faltan {len(reporte.pendientes)} textos, figuras o recursos (lista arriba)")
     return fallas, info
@@ -2102,7 +2163,7 @@ def resumen(cifras, reporte, info):
           f"{info['filas_t51']}); recursos externos {'OK, solo Google Fonts' if info['externos'] else 'FALLA'}; "
           f"nombres fuera de los autores {'OK' if info['nombres'] else 'FALLA'}; marcas internas "
           f"{'OK' if info['marcas'] else 'FALLA'}; anclas {'OK' if info['anclas'] else 'FALLA'}; traza al marco "
-          f"{'OK' if info['traza'] else 'FALLA'}")
+          f"{'OK' if info['traza'] else 'FALLA'}; etiquetas sin repetir {'OK' if info['etiquetas'] else 'FALLA'}")
     usados = ", ".join(reporte.textos_usados) or "ninguno"
     print(f"Textos del equipo: {len(reporte.textos_usados)} de {len(PENDIENTES)} ({usados})")
     puestos = len(reporte.recursos) - len(reporte.recursos_faltantes)
@@ -2327,9 +2388,11 @@ tfoot tr.aparte td{font-weight:400;color:var(--tinta-2);border-top:1px solid var
 .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 table.densa{font-size:14px}
 table.densa td{padding:7px 12px;white-space:nowrap}
-table.doc td,table.doc th{min-width:12ch}
+table.doc th[scope=row]{min-width:12ch}
+table.doc thead th{white-space:normal;vertical-align:bottom}
 /* textos del equipo */
 .aporte{margin:32px 0}
+.aporte ul{padding-left:20px}
 .aporte h3{font-size:26px}
 /* figuras con pestanas, marco y visor */
 .marco{max-width:1034px;margin:0 auto;padding:16px;background:var(--blanco);border:1px solid var(--marino);border-radius:var(--radio)}
@@ -2355,6 +2418,7 @@ table.doc td,table.doc th{min-width:12ch}
 [role="tab"]:focus-visible{outline:3px solid var(--marino);outline-offset:2px}
 /* plegables */
 .pliegue{margin:var(--esp-4) 0;border:1px solid var(--linea);border-radius:var(--radio);background:var(--blanco)}
+.pliegue > summary:hover{background:var(--panel)}
 .pliegue > summary{min-height:48px;display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;font-weight:700;color:var(--marino);list-style:none}
 .pliegue > summary::-webkit-details-marker{display:none}
 .pliegue > summary::before{content:"";flex:none;width:10px;height:10px;border-right:2px solid var(--marino);border-bottom:2px solid var(--marino);transform:rotate(-45deg);transition:transform 150ms ease-out}
@@ -2373,6 +2437,7 @@ table.doc td,table.doc th{min-width:12ch}
 .lectura-diferencia-pequena::before{background:var(--marino);width:6px;height:6px}
 .lectura-indicio::before{border:2px solid var(--marino);border-radius:50%}
 .lectura-sin-diferencia-clara{border-style:dotted}
+.lectura-sin-diferencia-clara::before{display:none}
 .lecturas{padding-left:0;list-style:none}
 .lecturas li{margin:10px 0}
 /* marco de analisis: los objetos del framework como tarjetas, con el recorrido de una posesion */
@@ -2387,6 +2452,7 @@ table.doc td,table.doc th{min-width:12ch}
 .alcance{display:grid;grid-template-columns:1fr 1fr;gap:16px 32px}
 .sector .alcance h4{margin:0 0 6px}
 .alcance ul{margin:0;padding-left:20px}
+@media (max-width:719px){.base{line-height:2.3}.base a{display:inline-block;min-height:24px;padding:4px 0}}
 .sector .alcance li{margin:4px 0}
 @media (max-width:719px){.alcance{grid-template-columns:minmax(0,1fr)}}
 .objetos{list-style:none;margin:0 0 20px;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
@@ -2416,8 +2482,8 @@ table.doc td,table.doc th{min-width:12ch}
 .hallazgo-titular{margin:0 0 var(--esp-4);font-family:var(--display);font-stretch:condensed;font-weight:800;font-size:clamp(28px,3.4vw,38px);line-height:1.05;text-transform:uppercase;letter-spacing:.01em;color:var(--marino);text-wrap:balance}
 .niveles-et{margin:0 0 var(--esp-2);font-size:15px;font-weight:600}
 .niveles{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 var(--esp-3)}
-.nivel{flex:1 1 7.5rem;max-width:13rem;margin:0;padding:10px 12px;background:var(--panel);border-radius:var(--radio)}
-.nivel dt{font-size:14px;font-weight:600;line-height:1.3}
+.nivel{flex:1 1 7.5rem;max-width:13rem;margin:0;padding:10px 12px;background:var(--panel);border-radius:var(--radio);display:flex;flex-direction:column}
+.nivel dt{font-size:14px;font-weight:600;line-height:1.3;flex:1 0 auto}
 .nivel dd{margin:0}
 .nivel-ref{display:block;font-size:12px;font-weight:400;color:var(--tinta-2)}
 .nivel-valor{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.3}
@@ -2438,7 +2504,7 @@ table.doc td,table.doc th{min-width:12ch}
 .f-clave svg{width:16px;height:16px}
 .f-clave-lleno{fill:var(--marino)}
 .f-clave-hueco{fill:var(--blanco);stroke:var(--marino);stroke-width:2.5}
-.f-clave-banda{display:inline-block;width:22px;height:12px;background:var(--panel);border:1px solid var(--linea)}
+.f-clave-banda{display:inline-block;width:22px;height:12px;background:var(--panel);border-left:1px dashed var(--tinta-2);border-right:1px dashed var(--tinta-2)}
 .f-lista{list-style:none;margin:0;padding:0}
 .sector .f-lista li{max-width:none}
 .f-fila,.f-eje{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1.6fr) 7.5rem;gap:2px 16px;align-items:center;padding:8px 0;box-shadow:inset 0 1px 0 var(--panel)}
@@ -2447,6 +2513,7 @@ table.doc td,table.doc th{min-width:12ch}
 .f-indicio{display:inline-block;font-size:12px;font-weight:600;padding:0 12px;border:1px dotted var(--marino);border-radius:var(--radio)}
 .f-plot{width:100%;height:24px;display:block}
 .f-banda{fill:var(--panel)}
+.f-umbral{stroke:var(--tinta-2);stroke-width:1;stroke-dasharray:3 3}
 .f-rejilla{stroke:var(--linea);stroke-width:1}
 .f-cero{stroke:var(--tinta-2);stroke-width:1}
 .f-ic{stroke:var(--marino);stroke-width:2;stroke-linecap:round}
@@ -2585,9 +2652,13 @@ function elegirTorneo(nombre,origen,foco){
   if(ev.key==='ArrowRight')j=(i+1)%n;else if(ev.key==='ArrowLeft')j=(i-1+n)%n;else if(ev.key==='Home')j=0;else if(ev.key==='End')j=n-1;
   if(j!==null){ev.preventDefault();elegirTorneo(g.nombres[j],g,true);}
  });
- caja.insertBefore(tl,paneles[0]);caja.classList.add('con-pestanas');grupos.push(g);
+ g.inicio=caja.getAttribute('data-inicio');caja.insertBefore(tl,paneles[0]);caja.classList.add('con-pestanas');grupos.push(g);
 });
-if(grupos.length)elegirTorneo(grupos[0].nombres[0],null,false);
+/* al cargar: las figuras por torneo abren en el primero; las de contexto, en su pestaña de inicio («91 partidos»),
+   que solo ellas tienen, asi que elegirla no mueve a las demas */
+var normal=grupos.filter(function(g){return !g.inicio;})[0];
+if(normal)elegirTorneo(normal.nombres[0],null,false);
+grupos.forEach(function(g){if(g.inicio)elegirTorneo(g.inicio,null,false);});
 /* figuras en pantallas chicas: tocar abre la vista ampliada; Escape o Cerrar vuelve a la figura */
 var visor=d.createElement('dialog');visor.className='visor';visor.setAttribute('aria-label','Figura ampliada');
 visor.innerHTML='<div class="visor-barra"><p></p><button type="button" class="visor-cerrar">Cerrar</button></div><div class="visor-lienzo" tabindex="0"><img alt=""></div>';
