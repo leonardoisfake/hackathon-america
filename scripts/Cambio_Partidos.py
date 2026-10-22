@@ -1,246 +1,313 @@
-"""Las métricas de contexto del América (posesión, xG, PPDA, altura de recuperación) dibujadas en la cancha.
+"""Las métricas de contexto del América dibujadas en la cancha: con los 91 partidos juntos y por torneo.
 
-Uso:  python contexto_cancha.py
+Uso:
+    python scripts/Cambio_Partidos.py                                   # guarda en figuras/ en la raíz del repo
+    python scripts/Cambio_Partidos.py --salida "../Local/ARCHIVOS_YORDI/figuras_pablo"   # guarda en otra carpeta
 
-Por cada torneo guarda 3 imágenes en CARPETA_SALIDA/<torneo>/ (las mismas carpetas de las demás gráficas):
-    contexto_cancha_marcador.png   perdiendo / empatando / ganando
-    contexto_cancha_localia.png    local / visitante   (necesita partidos.parquet con es_local)
-    contexto_cancha_rival.png      rivales difíciles / intermedios / fáciles (por su posición en la tabla)
+Guarda 3 imágenes con los 91 partidos en la raíz de la carpeta de salida y las mismas 3 de cada torneo en
+<salida>/<torneo>/ (las carpetas que usa graficas.py):
+    contexto_cancha_marcador.png   Perdiendo / Empatando / Ganando
+    contexto_cancha_localia.png    Local / Visitante
+    contexto_cancha_rival.png      Rival débil / Rival medio / Rival fuerte
+Un nivel con menos de MIN_PARTIDOS partidos o MIN_MINUTOS minutos en un torneo no se dibuja: su columna dice
+«Pocos datos». La línea punteada de la fila 3 es siempre el promedio de los 91 partidos, para comparar torneos.
 
-Cada imagen tiene 3 filas de canchas, el América ataca de izquierda a derecha:
-    1. Territorio: % de los pases de cada zona que son del América (azul = domina el América, dorado = el rival)
-    2. Peligro: tiros de ambos equipos, tamaño = xG (los del rival se ven en la portería del América)
-    3. Presión: mapa de calor de sus acciones defensivas y una línea con la altura media de recuperación
+Los contextos usan las mismas definiciones que el resto del reporte:
+    marcador  score_state de data/processed/contexto_eventos.parquet (marcador antes de cada evento) y los minutos
+              de cada estado de contexto_partidos.parquet
+    localía   is_home de data/processed/contexto_partidos.parquet
+    rival     rival_strength_tercil de data/processed/contexto_partidos.parquet (tercil de la diferencia de xG sin
+              penales del rival dentro de su torneo)
+
+Cada imagen tiene 3 filas de canchas, una columna por nivel del contexto y el América atacando de izquierda a derecha:
+    1. Territorio: % de los pases de cada tercio de cancha que son del América contra los del rival
+    2. Peligro: tiros de ambos equipos sin penales, tamaño = xG, y xG por 90 minutos a favor y en contra
+    3. Presión: calor de las acciones defensivas del América y línea con la altura media de sus recuperaciones
 
 Entradas (junto al script, en la carpeta actual, o en data/interim y data/processed):
-    eventos_parquet    tabla limpia 'eventos' (obligatoria)
-    partidos.parquet   tabla 'partidos' con match_id y es_local (si falta, se omite la imagen de localía)
-    team_match_stats_liga.parquet  resultados de toda la liga; arma la tabla de posiciones para clasificar a los rivales
-                                   (si falta, los rivales se agrupan por la diferencia de xG del América contra ellos)
+    eventos.parquet            tabla limpia 'eventos'
+    contexto_eventos.parquet   score_state por evento
+    contexto_partidos.parquet  is_home, rival_strength_tercil y minutos ganando, empatando y perdiendo por partido
 """
 import sys
-import textwrap
 from pathlib import Path
 
+import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
-from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
+from matplotlib.colors import LinearSegmentedColormap, Normalize, to_rgb
+from matplotlib.lines import Line2D
 from mplsoccer import Pitch
 
 AQUI = Path(__file__).resolve().parent
-TORNEOS = ["Apertura 2023", "Apertura 2024", "Clausura 2024", "Clausura 2025"]
-CARPETA_SALIDA = Path(r"C:\Users\pablo\modelo_ame_final\graficas")
+ROOT = AQUI.parent
+CARPETA_SALIDA = ROOT / "figuras"
+CARPETAS = [AQUI, Path.cwd(), AQUI / "data" / "interim", AQUI / "data" / "processed",
+            ROOT / "data" / "interim", ROOT / "data" / "processed"]
 BUSCAR_EVENTOS = ["eventos_parquet", "eventos.parquet"]
-BUSCAR_LIGA = ["team_match_stats_liga.parquet", "team_match_stats_liga", "team_match_stats_liga_1.parquet"]
-BUSCAR_PARTIDOS = ["partidos.parquet", "partidos", "analitica_partidos.parquet"]
-CARPETAS = [AQUI, Path.cwd(), AQUI / "data" / "interim", AQUI / "data" / "processed", AQUI / "data" / "raw" / "parquet"]
+BUSCAR_CONTEXTO_EVENTOS = ["contexto_eventos.parquet"]
+BUSCAR_CONTEXTO_PARTIDOS = ["contexto_partidos.parquet"]
 
-COLUMNAS_EVENTOS = ["match_id", "torneo", "period", "minute", "second", "type_name", "team_name", "es_equipo_analizado",
-                    "x_eq", "y_eq", "duel_type_name", "shot_outcome_name", "shot_statsbomb_xg"]
-ZONA_PRESION = 48  # x_eq >= 48: el 60% de campo más cercano a la portería del rival
-ACCIONES_PRESION = ["Pressure", "Interception", "Foul Committed"]
-ACCIONES_CALOR = ACCIONES_PRESION + ["Ball Recovery", "Duel"]
-BINS = (3, 1)
+COLUMNAS_EVENTOS = ["match_id", "index", "period", "type_name", "team_name", "es_equipo_analizado", "x_eq", "y_eq",
+                    "shot_outcome_name", "shot_type_name", "shot_statsbomb_xg"]
+COLUMNAS_PARTIDOS = ["match_id", "torneo", "is_home", "rival_strength_tercil", "minutos_perdiendo", "minutos_empatando",
+                     "minutos_ganando"]
+ACCIONES_CALOR = ["Pressure", "Interception", "Foul Committed", "Ball Recovery", "Duel"]
+ACCIONES_RECUPERA = ["Ball Recovery", "Interception"]
+BINS_TERRITORIO = (3, 1)
+BINS_CALOR = (6, 5)
+TORNEOS = ["Apertura 2023", "Apertura 2024", "Clausura 2024", "Clausura 2025"]
+MIN_PARTIDOS = 5  # por debajo de esto un nivel no se dibuja
+MIN_MINUTOS = 90
 
-# Para fijar tú los niveles de rival, llena este diccionario: {"Tigres UANL": "Fuertes", "Atlas": "Medios", ...}
-# Las columnas salen en el orden en que aparecen los niveles. Si está vacío, los niveles se calculan solos.
-NIVELES_MANUAL = {}
+# Paleta del reporte, la misma de graficas.py (no se importa porque graficas.py carga los datos al importarse)
+TINTA = "#0F1A2E"
+TINTA_SUAVE = "#4A5568"
+FONDO = "#FFFFFF"
+LINEA_CANCHA = "#B8C2D1"
+MARINO = "#0A1F44"
+AMARILLO = "#FFD23F"  # solo como acento encima de una marca marina, nunca como texto ni suelto sobre blanco
+RIVAL = "#7D746A"
+NEUTRO = "#F3F3F2"
+RAMPA_MARINO = ["#EEF1F6", "#C9D3E6", "#93A6C8", "#5C76A3", "#2E4A7A", MARINO]
+RAMPA_RIVAL = ["#EFEDEA", "#D6D1CB", "#B5ADA4", "#8F867C", "#6B635A", "#4A433C"]
+CMAP_MARINO = LinearSegmentedColormap.from_list("marino", RAMPA_MARINO)
+CMAP_DIVERGENTE = LinearSegmentedColormap.from_list("rival_america", RAMPA_RIVAL[:0:-1] + [NEUTRO] + RAMPA_MARINO[1:])
+HALO = [pe.withStroke(linewidth=5.5, foreground=FONDO)]  # borde blanco para que la línea se lea sobre el calor
+FUENTES = ["Segoe UI", "Helvetica Neue", "Arial", "DejaVu Sans"]
 
-AZUL, ORO, ROJO = "#0F2A52", "#B8912B", "#d62728"
-CMAP_TERRITORIO = LinearSegmentedColormap.from_list("territorio", [ORO, "#f4f1de", AZUL])
-CMAP_CALOR = LinearSegmentedColormap.from_list("calor", ["#ffffff", "#fde0c5", "#f59e72", "#e8553a", "#c8302a", "#8f1d21"])
+
+def aplicar_estilo():
+    plt.rcParams.update({
+        "font.family": "sans-serif", "font.sans-serif": FUENTES,
+        "text.color": TINTA, "axes.labelcolor": TINTA, "xtick.color": TINTA_SUAVE, "ytick.color": TINTA_SUAVE,
+        "figure.facecolor": FONDO, "axes.facecolor": FONDO, "savefig.facecolor": FONDO,
+        "legend.frameon": False,
+    })
 
 
-def buscar(nombres, obligatorio=True):
+def luminancia(color):
+    canal = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in to_rgb(color)]
+    return 0.2126 * canal[0] + 0.7152 * canal[1] + 0.0722 * canal[2]
+
+
+def texto_sobre(color):
+    # Blanco o tinta, el que contraste más con el color de fondo
+    lum = luminancia(color)
+    return FONDO if 1.05 / (lum + 0.05) >= (lum + 0.05) / (luminancia(TINTA) + 0.05) else TINTA
+
+
+def area_xg(xg):
+    # Área del punto proporcional al xG del tiro, a la escala de estas canchas chicas
+    return np.nan_to_num(np.asarray(xg, dtype=float)) * 300 + 8
+
+
+def buscar(nombres):
     for carpeta in CARPETAS:
         for nombre in nombres:
             ruta = carpeta / nombre
             if ruta.is_file():
                 return ruta
-    if obligatorio:
-        sys.exit(f"No encuentro {nombres} en: {[str(c) for c in CARPETAS]}")
-    return None
+    sys.exit(f"No encuentro {nombres} en: {[str(c) for c in CARPETAS]}")
 
 
-def leer_eventos():
-    ruta = buscar(BUSCAR_EVENTOS)
-    faltan = [c for c in COLUMNAS_EVENTOS if c not in pq.read_schema(ruta).names]
+def leer(nombres, columnas):
+    ruta = buscar(nombres)
+    faltan = [c for c in columnas if c not in pq.read_schema(ruta).names]
     if faltan:
-        sys.exit(f"A {ruta.name} le faltan columnas: {faltan}. Este script espera la tabla limpia 'eventos'.")
-    e = pd.read_parquet(ruta, columns=COLUMNAS_EVENTOS)
-    e["match_id"] = e["match_id"].astype("int64")
-    e["torneo"] = e["torneo"].astype(str)
+        sys.exit(f"A {ruta.name} le faltan columnas: {faltan}.")
+    return pd.read_parquet(ruta, columns=columnas)
+
+
+def leer_datos():
+    # Eventos con su score_state y partidos con localía, tercil del rival y minutos por estado del marcador
+    e = leer(BUSCAR_EVENTOS, COLUMNAS_EVENTOS)
+    ctx = leer(BUSCAR_CONTEXTO_EVENTOS, ["match_id", "index", "score_state"])
+    partidos = leer(BUSCAR_CONTEXTO_PARTIDOS, COLUMNAS_PARTIDOS)
+    for tabla in (e, ctx, partidos):
+        tabla["match_id"] = tabla["match_id"].astype("int64")
+    for tabla in (e, ctx):
+        tabla["index"] = tabla["index"].astype("int64")
     e["es_equipo_analizado"] = e["es_equipo_analizado"].fillna(False).astype(bool)
-    return e
+    e = e.merge(ctx, on=["match_id", "index"], how="left", validate="one_to_one")
+    # Sin la tanda de penales (score_state nulo) y sin tiros de penal, igual que el xG del reporte
+    e = e[e["period"] < 5]
+    e = e[~((e["type_name"] == "Shot") & (e["shot_type_name"] == "Penalty"))]
+    e["score_state"] = e["score_state"].astype(str)
+    partidos = partidos.drop_duplicates("match_id").set_index("match_id")
+    partidos["minutos"] = partidos[["minutos_perdiendo", "minutos_empatando", "minutos_ganando"]].sum(axis=1)
+    faltan = set(e["match_id"]) - set(partidos.index)
+    if faltan:
+        sys.exit(f"Hay {len(faltan)} partidos en los eventos que no están en contexto_partidos.")
+    return e, partidos
 
 
-def leer_liga():
-    # Resultados de todos los equipos de la liga: sirve para armar la tabla de posiciones de cada torneo
-    ruta = buscar(BUSCAR_LIGA, obligatorio=False)
-    cols = ["match_id", "team_name", "torneo", "fase", "team_match_gd"]
-    if ruta is None or [c for c in cols if c not in pq.read_schema(ruta).names]:
-        print("Aviso: no encontré team_match_stats_liga con torneo, fase y team_match_gd; los rivales se agruparán por "
-              "la diferencia de xG del América contra ellos.")
-        return None
-    l = pd.read_parquet(ruta, columns=cols)
-    l["torneo"] = l["torneo"].astype(str)
-    return l[l["fase"].astype(str) == "regular"]
-
-
-def tabla_posiciones(liga, torneo):
-    # Tabla de la fase regular: 3 puntos por victoria, 1 por empate; desempata la diferencia de goles
-    d = liga[liga["torneo"] == torneo].copy()
-    d["pts"] = np.where(d["team_match_gd"] > 0, 3, np.where(d["team_match_gd"] == 0, 1, 0))
-    t = d.groupby("team_name").agg(pts=("pts", "sum"), dg=("team_match_gd", "sum"))
-    t = t.sort_values(["pts", "dg"], ascending=False)
-    t["pos"] = np.arange(1, len(t) + 1)
-    return t
-
-
-def leer_localia():
-    ruta = buscar(BUSCAR_PARTIDOS, obligatorio=False)
-    if ruta is None or "es_local" not in pq.read_schema(ruta).names:
-        print("Aviso: no encontré una tabla de partidos con 'es_local'; se omite la imagen de localía.")
-        return None
-    p = pd.read_parquet(ruta, columns=["match_id", "es_local"])
-    p["match_id"] = p["match_id"].astype("int64")
-    return p.drop_duplicates("match_id").set_index("match_id")["es_local"].astype(bool)
-
-
-def preparar(eventos):
-    # Eventos de tiempo reglamentario con el estado del marcador (-1 perdiendo, 0 empatando, 1 ganando) y los
-    # segundos que cada partido pasa en cada estado
-    e = eventos[eventos["period"].isin([1, 2])].copy()
-    e["t"] = e["minute"] * 60 + e["second"]
-    fin_p1 = e[e["period"] == 1].groupby("match_id")["t"].max()
-    e["t"] = np.where(e["period"] == 1, e["t"], e["t"] - 45 * 60 + e["match_id"].map(fin_p1).fillna(45 * 60))
-    duracion = e.groupby("match_id")["t"].max()
-    gol = ((e["type_name"] == "Shot") & (e["shot_outcome_name"] == "Goal")) | (e["type_name"] == "Own Goal For")
-    e["gol_am"] = gol & e["es_equipo_analizado"]
-    e["gol_rv"] = gol & ~e["es_equipo_analizado"]
-    e["estado"] = 0
-    expo = []
-    for m, idx in e.groupby("match_id").indices.items():
-        sub = e.iloc[idx]
-        goles = sub[sub["gol_am"] | sub["gol_rv"]].sort_values("t")
-        gt = goles["t"].to_numpy()
-        previo = np.concatenate([[0], np.cumsum(np.where(goles["gol_am"], 1, -1))])
-        e.iloc[idx, e.columns.get_loc("estado")] = np.sign(previo[np.searchsorted(gt, sub["t"].to_numpy(), side="left")])
-        for estado, seg in zip(np.sign(previo), np.diff(np.concatenate([[0], gt, [duracion[m]]]))):
-            expo.append((m, int(estado), seg))
-    expo = pd.DataFrame(expo, columns=["match_id", "estado", "seg"]).groupby(["match_id", "estado"], as_index=False).sum()
-    rival = e[~e["es_equipo_analizado"]].dropna(subset=["team_name"]).groupby("match_id")["team_name"].first()
-    return e, expo, rival
-
-
-def metricas(E, segundos):
-    # Mismas definiciones que en contexto_partido.py
+def metricas(E, minutos):
     am = E["es_equipo_analizado"]
     pase = E["type_name"] == "Pass"
     tiro = E["type_name"] == "Shot"
     xg = E["shot_statsbomb_xg"].fillna(0)
-    accion = E["type_name"].isin(ACCIONES_PRESION) | ((E["type_name"] == "Duel") & (E["duel_type_name"] == "Tackle"))
-    en_zona = E["x_eq"] >= ZONA_PRESION
-    recupera = E["type_name"].isin(["Ball Recovery", "Interception"]) & am & E["x_eq"].notna()
-    d90 = segundos / 5400
-    n_pases = pase.sum()
-    pres = (accion & am & en_zona).sum()
+    recupera = E["type_name"].isin(ACCIONES_RECUPERA) & am & E["x_eq"].notna()
+    d90 = minutos / 90
     return {
-        "posesion": (pase & am).sum() / n_pases * 100 if n_pases else np.nan,
+        "pases_am": (pase & am).sum() / pase.sum() if pase.sum() else np.nan,
         "xg_favor": xg[tiro & am].sum() / d90 if d90 > 0 else np.nan,
         "xg_contra": xg[tiro & ~am].sum() / d90 if d90 > 0 else np.nan,
-        "ppda": (pase & ~am & en_zona).sum() / pres if pres else np.nan,
         "altura": E.loc[recupera, "x_eq"].mean(),
-        "n_tiros": int((tiro & am).sum()), "n_goles": int((tiro & am & (E["shot_outcome_name"] == "Goal")).sum()),
     }
 
 
 def territorio(E, pitch):
-    # % de los pases de cada tercio de cancha que son del América
-    p = E[(E["type_name"] == "Pass")].dropna(subset=["x_eq", "y_eq"])
+    # Parte de los pases de cada tercio de cancha que son del América
+    p = E[E["type_name"] == "Pass"].dropna(subset=["x_eq", "y_eq"])
     propio = p["es_equipo_analizado"]
-    s_am = pitch.bin_statistic(p.loc[propio, "x_eq"], p.loc[propio, "y_eq"], statistic="count", bins=BINS)
-    s_todo = pitch.bin_statistic(p["x_eq"], p["y_eq"], statistic="count", bins=BINS)
-    total = s_todo["statistic"]
+    s_am = pitch.bin_statistic(p.loc[propio, "x_eq"], p.loc[propio, "y_eq"], statistic="count", bins=BINS_TERRITORIO)
+    total = pitch.bin_statistic(p["x_eq"], p["y_eq"], statistic="count", bins=BINS_TERRITORIO)["statistic"]
     s_am["statistic"] = np.where(total > 0, s_am["statistic"] / np.where(total > 0, total, 1), np.nan)
     return s_am
 
 
+def calor(E, pitch):
+    # Parte de las acciones defensivas del América (en ese nivel) que cae en cada zona
+    d = E[E["es_equipo_analizado"] & E["type_name"].isin(ACCIONES_CALOR)].dropna(subset=["x_eq", "y_eq"])
+    return pitch.bin_statistic(d["x_eq"], d["y_eq"], statistic="count", bins=BINS_CALOR, normalize=True)
+
+
 def caja(ax, x, y, titulo, valor, color):
-    ax.text(x, y, f"{titulo}\n{valor}", ha="center", va="center", fontsize=15, fontweight="bold", color="white",
-            zorder=6, bbox=dict(boxstyle="round,pad=0.45", fc=color, ec="none", alpha=0.95))
+    ax.text(x, y, f"{titulo}\n{valor}", ha="center", va="center", fontsize=13, fontweight="bold", color=FONDO,
+            zorder=6, linespacing=1.25, bbox=dict(boxstyle="round,pad=0.4", fc=color, ec="none", alpha=0.95))
 
 
-def dibujar_columna(axs, pitch, E, segundos, titulo, n_partidos, ref_altura):
-    m = metricas(E, segundos)
+def porterias(ax):
+    ax.text(-1.5, 40, "Portería del América", rotation=90, ha="right", va="center", fontsize=12.5, color=TINTA_SUAVE)
+    ax.text(121.5, 40, "Portería del rival", rotation=270, ha="left", va="center", fontsize=12.5, color=TINTA_SUAVE)
+
+
+def titulo_panel(ax, texto):
+    ax.set_title(texto, fontsize=14, color=TINTA, pad=6)
+
+
+def dibujar_columna(axs, pitch, E, minutos, ref_altura, norma_calor):
+    m = metricas(E, minutos)
     ax1, ax2, ax3 = axs
     for ax in axs:
         pitch.draw(ax=ax)
-    if E.empty:
-        for ax in axs:
-            ax.text(60, 40, "sin datos", ha="center", va="center", fontsize=14, color="#777777")
-        ax1.set_title(f"{titulo}\nsin datos", fontsize=13, fontweight="bold")
-        return
+        porterias(ax)
 
-    # 1. ¿Quién tiene el balón? (por tercios de cancha)
+    # 1. Territorio
     t = territorio(E, pitch)
-    pitch.heatmap(t, ax=ax1, cmap=CMAP_TERRITORIO, norm=TwoSlopeNorm(vcenter=0.5, vmin=0.2, vmax=0.8), edgecolors="white",
-                  zorder=1, alpha=0.9)
+    norma = Normalize(0.2, 0.8)
+    pitch.heatmap(t, ax=ax1, cmap=CMAP_DIVERGENTE, norm=norma, edgecolors=FONDO, linewidth=2, zorder=1)
     for cx, cy, v in zip(t["cx"].ravel(), t["cy"].ravel(), t["statistic"].ravel()):
         if not np.isnan(v):
-            color = "white" if v > 0.68 else "black"
-            ax1.text(cx, cy - 4, f"{v:.0%}", ha="center", va="center", fontsize=24, fontweight="bold", zorder=3,
-                     color=color)
-            ax1.text(cx, cy + 11, "de cada 100 pases\nen esta zona,\nson del América", ha="center", va="center",
-                     fontsize=10, zorder=3, color=color)
-    ax1.set_title(f"{titulo}\n{n_partidos} partidos\n¿Quién tiene el balón? América: {m['posesion']:.0f}%",
-                  fontsize=13, fontweight="bold")
+            ax1.text(cx, cy, f"{v:.0%}", ha="center", va="center", fontsize=22, fontweight="bold", zorder=3,
+                     color=texto_sobre(CMAP_DIVERGENTE(norma(v))))
+    titulo_panel(ax1, f"El América da el {m['pases_am']:.0%} de los pases")
 
-    # 2. ¿Cuánto peligro hay? (xG por 90 minutos)
+    # 2. Peligro: cada equipo con su color; el gol relleno y con borde, como en 3_tiros_ataque y 4_tiros_defensa
     tiros = E[E["type_name"] == "Shot"].dropna(subset=["x_eq", "y_eq"])
-    for propio, color in ((False, ORO), (True, AZUL)):
+    for propio, color, borde_gol in ((False, RIVAL, FONDO), (True, MARINO, AMARILLO)):
         s = tiros[tiros["es_equipo_analizado"] == propio]
         gol = s["shot_outcome_name"] == "Goal"
-        pitch.scatter(s.loc[~gol, "x_eq"], s.loc[~gol, "y_eq"], s=22, color=color, alpha=0.3, ax=ax2, zorder=2)
-        pitch.scatter(s.loc[gol, "x_eq"], s.loc[gol, "y_eq"], s=260, color=ROJO, edgecolors="black", marker="*",
-                      ax=ax2, zorder=4)
-    caja(ax2, 38, 40, "xG en contra", f"{m['xg_contra']:.2f}", ORO)
-    caja(ax2, 82, 40, "xG a favor", f"{m['xg_favor']:.2f}", AZUL)
-    ax2.set_title("¿Cuánto peligro hay? (xG por 90 min)", fontsize=13, fontweight="bold")
+        pitch.scatter(s.loc[~gol, "x_eq"], s.loc[~gol, "y_eq"], s=area_xg(s.loc[~gol, "shot_statsbomb_xg"]),
+                      facecolors="none", edgecolors=color, linewidths=0.7, alpha=0.5, ax=ax2, zorder=2)
+        pitch.scatter(s.loc[gol, "x_eq"], s.loc[gol, "y_eq"], s=area_xg(s.loc[gol, "shot_statsbomb_xg"]),
+                      color=color, edgecolors=borde_gol, linewidths=1, ax=ax2, zorder=4)
+    caja(ax2, 42, 40, "en contra", f"{m['xg_contra']:.2f}", RIVAL)
+    caja(ax2, 78, 40, "a favor", f"{m['xg_favor']:.2f}", MARINO)
+    titulo_panel(ax2, "xG por 90 minutos")
 
-    # 3. ¿Dónde recupera el balón? (línea) y cuánto presiona (PPDA)
-    ax3.fill_between([0, m["altura"]], [0, 0], [80, 80], color="#f3dcd8", alpha=0.8, zorder=0)
-    ax3.axvline(ref_altura, color="#777777", ls=":", lw=2.2, zorder=3)
-    ax3.axvline(m["altura"], color=AZUL, ls="--", lw=3.4, zorder=4)
-    ax3.annotate("", xy=(m["altura"] + 14, 14), xytext=(m["altura"], 14), zorder=5,
-                 arrowprops=dict(arrowstyle="-|>", color=AZUL, lw=2.5))
-    ax3.text(m["altura"] + 2, 6, f"{m['altura']:.0f} yardas", fontsize=15, fontweight="bold", color=AZUL, va="center", zorder=6)
-    caja(ax3, 96, 40, "PPDA", f"{m['ppda']:.1f}", AZUL)
-    ax3.text(96, 55, "menos = presiona más", ha="center", va="center", fontsize=11, color="#333333", zorder=6)
-    ax3.set_title(f"¿Dónde recupera el balón?\nA {m['altura']:.0f} yardas de su portería", fontsize=13, fontweight="bold")
+    # 3. Presión: calor de acciones defensivas y altura media de recuperación
+    pitch.heatmap(calor(E, pitch), ax=ax3, cmap=CMAP_MARINO, norm=norma_calor, edgecolors=FONDO, linewidth=1,
+                  zorder=1)
+    ax3.plot([ref_altura, ref_altura], [0, 80], color=TINTA_SUAVE, ls=":", lw=2.4, zorder=6)
+    ax3.plot([m["altura"], m["altura"]], [0, 80], color=MARINO, lw=2.8, zorder=5, path_effects=HALO)
+    titulo_panel(ax3, f"Recupera a {m['altura']:.0f} yardas de su portería")
 
 
-def figura(columnas, titulo_figura, subtitulo, ruta_torneo, nombre, ref_altura, pie_columnas=None):
-    # columnas: lista de (titulo, eventos, segundos, n_partidos)
-    pitch = Pitch(pitch_type="statsbomb", line_color="#555555", line_zorder=2)
-    fig, axs = plt.subplots(3, len(columnas), figsize=(6.4 * len(columnas) + 0.6, 15), squeeze=False)
-    fig.subplots_adjust(top=0.865, bottom=0.09, hspace=0.32, wspace=0.08, left=0.02, right=0.98)
-    fig.suptitle(titulo_figura, fontsize=22, fontweight="bold", y=0.985)
-    fig.text(0.5, 0.935, subtitulo, ha="center", fontsize=12.5)
-    for j, (titulo, E, segundos, n) in enumerate(columnas):
-        dibujar_columna(axs[:, j], pitch, E, segundos, titulo, n, ref_altura)
-        if pie_columnas and pie_columnas[j]:
-            axs[2, j].text(0.5, -0.06, textwrap.fill(pie_columnas[j], 52), transform=axs[2, j].transAxes, ha="center",
-                           va="top", fontsize=9, color="#555555")
-    fig.text(0.5, 0.035,
-             "Fila 1: de cada 100 pases dados en esa zona, cuántos son del América (azul = más del América, dorado = más del rival).   "
-             "Fila 2: puntos = tiros (azul América, dorado rival), estrella = gol.\n"
-             "Fila 3: línea azul = altura donde recupera el balón; línea gris punteada = promedio del torneo; "
-             "zona rosa = campo que deja atrás. PPDA = pases del rival por cada acción de presión del América.",
-             ha="center", va="center", fontsize=10.5, color="#444444")
-    carpeta = CARPETA_SALIDA / ruta_torneo
+def columna_sin_datos(axs, pitch, n_partidos, minutos):
+    # Cancha vacía con el aviso, para no dibujar un nivel con muy pocos datos
+    for ax in axs:
+        pitch.draw(ax=ax)
+        ax.text(60, 40, f"Pocos datos\n{n_partidos} partidos · {minutos:,.0f} min", ha="center", va="center",
+                fontsize=15, color=TINTA_SUAVE, linespacing=1.5, zorder=6,
+                bbox=dict(boxstyle="round,pad=0.6", fc=NEUTRO, ec="none"))
+    titulo_panel(axs[0], f"No se dibuja: pide {MIN_PARTIDOS} partidos y {MIN_MINUTOS} min")
+
+
+def leyendas(fig, axs_leyenda, norma_calor, texto_ref):
+    # Una columna a la derecha explica cada fila: qué mide, colores, tamaños y líneas
+    texto = dict(fontsize=13, color=TINTA, ha="left", va="top", linespacing=1.35)
+    titulo = dict(fontsize=14.5, fontweight="bold", color=TINTA, ha="left", va="top")
+    a1, a2, a3 = axs_leyenda
+    for ax in axs_leyenda:
+        ax.axis("off")
+
+    a1.text(0, 1, "1. Territorio", transform=a1.transAxes, **titulo)
+    a1.text(0, 0.87, "% de los pases dados en\ncada tercio que son\ndel América", transform=a1.transAxes, **texto)
+    barra = fig.colorbar(plt.cm.ScalarMappable(norm=Normalize(0.2, 0.8), cmap=CMAP_DIVERGENTE),
+                         cax=a1.inset_axes([0, 0.3, 0.9, 0.08]), orientation="horizontal", ticks=[0.2, 0.5, 0.8])
+    barra.outline.set_visible(False)
+    barra.ax.set_xticklabels(["20%", "50%", "80%"])
+    barra.ax.tick_params(length=0, labelsize=13, labelcolor=TINTA_SUAVE)
+    a1.text(0, 0.16, "Más del rival", transform=a1.transAxes, fontsize=13, color=TINTA, ha="left", va="top")
+    a1.text(0.9, 0.05, "Más del América", transform=a1.transAxes, fontsize=13, color=TINTA, ha="right", va="top")
+
+    a2.text(0, 1, "2. Peligro", transform=a2.transAxes, **titulo)
+    a2.text(0, 0.87, "Tiros;\ntamaño = xG", transform=a2.transAxes, **texto)
+    marcas = [Line2D([], [], marker="o", ls="", ms=10, mfc="none", mec=MARINO, label="Tiro del América"),
+              Line2D([], [], marker="o", ls="", ms=10, mfc=MARINO, mec=AMARILLO, mew=1.5, label="Gol del América"),
+              Line2D([], [], marker="o", ls="", ms=10, mfc="none", mec=RIVAL, label="Tiro del rival"),
+              Line2D([], [], marker="o", ls="", ms=10, mfc=RIVAL, mec=FONDO, mew=1.5, label="Gol del rival")]
+    marcas += [Line2D([], [], marker="o", ls="", ms=np.sqrt(area_xg(v)), mfc="none", mec=TINTA_SUAVE,
+                      label=f"{v} xG") for v in (0.05, 0.3, 0.6)]
+    a2.legend(handles=marcas, loc="upper left", bbox_to_anchor=(-0.04, 0.66), fontsize=13, ncol=1,
+              handletextpad=0.4, labelspacing=0.45, borderaxespad=0)
+
+    a3.text(0, 1, "3. Presión", transform=a3.transAxes, **titulo)
+    a3.text(0, 0.87, "% de las acciones\ndefensivas del América\nen cada zona", transform=a3.transAxes, **texto)
+    barra = fig.colorbar(plt.cm.ScalarMappable(norm=norma_calor, cmap=CMAP_MARINO),
+                         cax=a3.inset_axes([0, 0.47, 0.9, 0.08]), orientation="horizontal")
+    barra.outline.set_visible(False)
+    barra.ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0%}")
+    barra.ax.locator_params(nbins=3)
+    barra.ax.tick_params(length=0, labelsize=13, labelcolor=TINTA_SUAVE)
+    lineas = [Line2D([], [], color=MARINO, lw=2.8, label="Altura media donde\nrecupera el balón"),
+              Line2D([], [], color=TINTA_SUAVE, lw=2.4, ls=":", label=texto_ref)]
+    a3.legend(handles=lineas, loc="upper left", bbox_to_anchor=(-0.04, 0.3), fontsize=13, handlelength=1.8,
+              labelspacing=0.7, borderaxespad=0)
+
+
+def suficiente(n_partidos, minutos):
+    return n_partidos >= MIN_PARTIDOS and minutos >= MIN_MINUTOS
+
+
+def figura(columnas, titulo_figura, subtitulo, carpeta, nombre, ref_altura, texto_ref):
+    # columnas: lista de (nombre, detalle, eventos, minutos, partidos)
+    aplicar_estilo()
+    pitch = Pitch(pitch_type="statsbomb", line_color=LINEA_CANCHA, line_zorder=2, pad_left=6, pad_right=6)
+    n = len(columnas)
+    # Misma escala del calor en todas las columnas dibujadas de la figura
+    norma_calor = Normalize(0, max(np.nanmax(calor(E, pitch)["statistic"]) for _, _, E, minutos, n_p in columnas
+                                   if suficiente(n_p, minutos)))
+    fig, axs = plt.subplots(3, n + 1, figsize=(4.9 * n + 2.9, 13.6), squeeze=False,
+                            gridspec_kw={"width_ratios": [1] * n + [0.56]})
+    fig.subplots_adjust(top=0.83, bottom=0.01, left=0.01, right=0.99, hspace=0.3, wspace=0.12)
+    fig.text(0.01, 0.995, titulo_figura, ha="left", va="top", fontsize=19, fontweight="bold", color=TINTA)
+    fig.text(0.01, 0.955, subtitulo, ha="left", va="top", fontsize=13, color=TINTA_SUAVE, linespacing=1.4)
+    for j, (nombre_col, detalle, E, minutos, n_partidos) in enumerate(columnas):
+        if suficiente(n_partidos, minutos):
+            dibujar_columna(axs[:, j], pitch, E, minutos, ref_altura, norma_calor)
+        else:
+            columna_sin_datos(axs[:, j], pitch, n_partidos, minutos)
+        axs[0, j].annotate(detalle, xy=(0.5, 1), xycoords="axes fraction", xytext=(0, 30), textcoords="offset points",
+                           ha="center", va="bottom", fontsize=13, color=TINTA_SUAVE)
+        axs[0, j].annotate(nombre_col, xy=(0.5, 1), xycoords="axes fraction", xytext=(0, 48),
+                           textcoords="offset points", ha="center", va="bottom", fontsize=17, fontweight="bold",
+                           color=TINTA)
+    leyendas(fig, axs[:, n], norma_calor, texto_ref)
     carpeta.mkdir(parents=True, exist_ok=True)
     ruta = carpeta / nombre
     fig.savefig(ruta, dpi=120, bbox_inches="tight")
@@ -248,94 +315,71 @@ def figura(columnas, titulo_figura, subtitulo, ruta_torneo, nombre, ref_altura, 
     print("Guardado:", ruta)
 
 
-def segundos_de(expo, partidos, estado=None):
-    d = expo[expo["match_id"].isin(partidos)]
-    if estado is not None:
-        d = d[d["estado"] == estado]
-    return d["seg"].sum()
+def figuras_contexto(e, partidos, carpeta, torneo, base, ref, texto_ref):
+    # Las 3 figuras de un conjunto de partidos: los 91 (torneo = None) o los de un torneo
+    sufijo = f" · {torneo}" if torneo else ""
+    etiqueta = torneo or "91 partidos"
 
+    # Marcador: cada columna usa solo los eventos y los minutos jugados con ese marcador
+    cols = []
+    for estado, nombre in (("perdiendo", "Perdiendo"), ("empatando", "Empatando"), ("ganando", "Ganando")):
+        minutos = partidos[f"minutos_{estado}"]
+        n_p = int((minutos > 0).sum())
+        cols.append((nombre, f"{minutos.sum():,.0f} min en {n_p} partidos", e[e["score_state"] == estado],
+                     minutos.sum(), n_p))
+        print(f"{etiqueta} · marcador {estado}: {n_p} partidos, {minutos.sum():,.0f} min")
+    figura(cols, f"El América según el marcador{sufijo}",
+           f"{base}\nCada columna usa solo los minutos jugados con ese marcador (el marcador antes de cada jugada)",
+           carpeta, "contexto_cancha_marcador.png", ref, texto_ref)
 
-def niveles_rival(e, expo, rival, partidos, torneo, liga):
-    # Devuelve ([(nombre del nivel, rivales, etiquetas)], explicación)
-    rivales_torneo = sorted(set(rival.reindex(list(partidos)).dropna()))
-    if NIVELES_MANUAL:
-        niveles = list(dict.fromkeys(NIVELES_MANUAL.values()))
-        return ([(n, [r for r, v in NIVELES_MANUAL.items() if v == n and r in rivales_torneo],
-                  [r for r, v in NIVELES_MANUAL.items() if v == n and r in rivales_torneo]) for n in niveles],
-                "Niveles de rival definidos a mano.")
-    if liga is not None:
-        tabla = tabla_posiciones(liga, torneo)
-        orden = [r for r in tabla.index if r in rivales_torneo]  # de la parte alta a la baja de la tabla
-        partes = [list(x) for x in np.array_split(orden, 3)]
-        nombres = ["Rivales difíciles (parte alta de la tabla)", "Rivales intermedios (media tabla)",
-                   "Rivales fáciles (parte baja de la tabla)"]
-        return ([(n, rs, [f"{r} ({tabla.loc[r, 'pos']}°)" for r in rs]) for n, rs in zip(nombres, partes)],
-                "Rivales agrupados por su posición en la tabla de la fase regular del torneo (entre paréntesis): "
-                "el tercio de arriba son los difíciles y el de abajo los fáciles.")
-    filas = []
-    rs = rival.reindex(list(partidos)).dropna()
-    for r, ms in rs.groupby(rs):
-        sub = e[e["match_id"].isin(ms.index)]
-        mt = metricas(sub, segundos_de(expo, ms.index))
-        filas.append((r, mt["xg_favor"] - mt["xg_contra"]))
-    orden = [r for r, _ in sorted(filas, key=lambda f: f[1])]
-    nombres = ["Los que más le complican", "Intermedios", "Los que menos le complican"]
-    return ([(n, list(x), list(x)) for n, x in zip(nombres, np.array_split(orden, 3))],
-            "Rivales agrupados por la diferencia de xG que logra el América contra ellos; cada grupo es un tercio.")
+    # Localía
+    cols = []
+    for es_local, nombre in ((True, "Local"), (False, "Visitante")):
+        ms = partidos.index[partidos["is_home"].astype(bool) == es_local]
+        minutos = partidos.loc[ms, "minutos"].sum()
+        cols.append((nombre, f"{len(ms)} partidos · {minutos:,.0f} min", e[e["match_id"].isin(ms)], minutos, len(ms)))
+        print(f"{etiqueta} · localía {nombre}: {len(ms)} partidos, {minutos:,.0f} min")
+    figura(cols, f"El América de local y de visitante{sufijo}", f"{base}\nPartidos completos",
+           carpeta, "contexto_cancha_localia.png", ref, texto_ref)
+
+    # Rival
+    cols = []
+    for tercil in ("débil", "medio", "fuerte"):
+        ms = partidos.index[partidos["rival_strength_tercil"].astype(str) == tercil]
+        minutos = partidos.loc[ms, "minutos"].sum()
+        cols.append((f"Rival {tercil}", f"{len(ms)} partidos · {minutos:,.0f} min", e[e["match_id"].isin(ms)],
+                     minutos, len(ms)))
+        print(f"{etiqueta} · rival {tercil}: {len(ms)} partidos, {minutos:,.0f} min")
+    figura(cols, f"El América según la fuerza del rival{sufijo}",
+           f"{base}\nFuerza del rival: tercio de su torneo según su diferencia de xG por partido",
+           carpeta, "contexto_cancha_rival.png", ref, texto_ref)
 
 
 def main():
-    eventos = leer_eventos()
-    equipo = eventos.loc[eventos["es_equipo_analizado"], "team_name"].iloc[0]
-    local = leer_localia()
-    liga = leer_liga()
-    e, expo, rival = preparar(eventos)
-    torneo_de = eventos.drop_duplicates("match_id").set_index("match_id")["torneo"]
-    presentes = set(torneo_de)
-    for t in set(TORNEOS) - presentes:
-        print(f"Aviso: el torneo '{t}' no está en el archivo (encontrados: {sorted(presentes)})")
-    torneos = [t for t in TORNEOS if t in presentes]
-    if not torneos:
-        sys.exit("Ningún torneo de la lista coincide con la columna torneo.")
+    global CARPETA_SALIDA
+    argumentos = sys.argv[1:]
+    if "--salida" in argumentos:
+        i = argumentos.index("--salida")
+        if i + 1 >= len(argumentos):
+            sys.exit("Falta la carpeta después de --salida.")
+        CARPETA_SALIDA = Path(argumentos[i + 1]).resolve()
 
-    for t in torneos:
-        partidos = torneo_de.index[torneo_de == t]
-        et = e[e["match_id"].isin(partidos)]
-        n = len(partidos)
-        ref = metricas(et, segundos_de(expo, partidos))["altura"]
+    e, partidos = leer_datos()
+    # La referencia de la fila 3 es siempre la de los 91 partidos, también en las figuras por torneo
+    ref = metricas(e, partidos["minutos"].sum())["altura"]
+    ataque = "El América ataca de izquierda a derecha"
 
-        # marcador
-        cols = []
-        for estado, nombre in ((-1, "Perdiendo"), (0, "Empatando"), (1, "Ganando")):
-            sub = et[et["estado"] == estado]
-            seg = segundos_de(expo, partidos, estado)
-            n_est = expo[(expo["match_id"].isin(partidos)) & (expo["estado"] == estado) & (expo["seg"] > 0)]["match_id"].nunique()
-            cols.append((f"{nombre} ({seg / 60 / n:.0f} min por partido)", sub, seg, n_est))
-        figura(cols, f"{equipo} según el marcador - {t}",
-               f"{n} partidos, tiempo reglamentario. Cada columna usa solo los minutos jugados en ese marcador. "
-               "El América ataca de izquierda a derecha.", t, "contexto_cancha_marcador.png", ref)
-
-        # localía
-        if local is not None:
-            cols = []
-            for es_local, nombre in ((True, "Local"), (False, "Visitante")):
-                ms = [m for m in partidos if m in local.index and bool(local[m]) == es_local]
-                sub = et[et["match_id"].isin(ms)]
-                cols.append((nombre, sub, segundos_de(expo, ms), len(ms)))
-            figura(cols, f"{equipo} de local y de visitante - {t}",
-                   f"{n} partidos, tiempo reglamentario. El América ataca de izquierda a derecha.", t,
-                   "contexto_cancha_localia.png", ref)
-
-        # rival
-        cols, pies = [], []
-        niveles, explicacion = niveles_rival(e, expo, rival, partidos, t, liga)
-        for nombre, rivales, etiquetas in niveles:
-            ms = [m for m in partidos if rival.get(m) in rivales]
-            sub = et[et["match_id"].isin(ms)]
-            cols.append((nombre, sub, segundos_de(expo, ms), len(ms)))
-            pies.append(", ".join(etiquetas))
-        figura(cols, f"{equipo} según el rival - {t}", f"{n} partidos. {explicacion}", t,
-               "contexto_cancha_rival.png", ref, pies)
+    figuras_contexto(e, partidos, CARPETA_SALIDA, None,
+                     f"{e['match_id'].nunique()} partidos (Apertura 2023 a Clausura 2025) · {ataque}", ref,
+                     f"Promedio de los\n91 partidos ({ref:.0f} yd)")
+    for torneo in TORNEOS:
+        p_t = partidos[partidos["torneo"].astype(str) == torneo]
+        if p_t.empty:
+            print(f"Aviso: no hay partidos del torneo '{torneo}'.")
+            continue
+        figuras_contexto(e[e["match_id"].isin(p_t.index)], p_t, CARPETA_SALIDA / torneo, torneo,
+                         f"{torneo} · {len(p_t)} partidos · {ataque}", ref,
+                         f"Promedio de los 91\npartidos, no solo\nde este torneo ({ref:.0f} yd)")
 
 
 if __name__ == "__main__":
