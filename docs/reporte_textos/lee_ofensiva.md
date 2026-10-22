@@ -1,6 +1,6 @@
 # Tres tipos de posesión
 
-Se agruparon 3,363 posesiones de juego abierto del América (las válidas de los 91 partidos, sin balón parado) según pases, duración, verticalidad, altura de inicio y altura máxima alcanzada. La verticalidad va de 0 a 1: cerca de 1, el balón avanza de forma sostenida hacia la portería rival; cerca de 0, circula o se recicla. Salen tres grupos que se mantienen al remuestrear partidos. El «tercio final» es x ≥ 80 yardas. (Separación moderada, silueta 0.285; acuerdo medio entre agrupaciones al remuestrear, 0.96.)
+De las 3,388 posesiones válidas del América, 3,363 tienen verticalidad (a 25 no se les pudo calcular); esas se agruparon según pases, duración, verticalidad, altura de inicio y altura máxima alcanzada. La verticalidad va de 0 a 1: cerca de 1, el balón avanza de forma sostenida hacia la portería rival; cerca de 0, circula o se recicla. Salen tres grupos. El «tercio final» es x ≥ 80 yardas. (Los grupos se separan de forma moderada, silueta 0.285 en una escala de −1 a 1, y al remuestrear salen casi siempre los mismos: 0.96 de acuerdo.)
 
 | Tipo de posesión | Posesiones | Pases (mediana) | Duración (mediana, s) | Verticalidad (mediana) | Llega al tercio final | Con tiro | xG por posesión |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
