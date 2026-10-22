@@ -3,8 +3,9 @@
 Uso:
     python graficas_america.py                          # genera todas
     python graficas_america.py radar_posiciones tiros_ataque     # solo las que nombres
+    python graficas_america.py tiros_ataque --salida otra/carpeta   # guarda en otra carpeta
 
-Gráficas disponibles (nombre -> archivo que guarda en graficas/<torneo>/):
+Gráficas disponibles (nombre -> archivo que guarda en figuras/<torneo>/ en la raíz del repo):
     actividad_defensiva    1_actividad_defensiva.png
     flujo_pases            2_flujo_pases.png
     mapa_calor_defensivo   3_mapa_calor_defensivo.png
@@ -32,29 +33,146 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
-from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.colors import LinearSegmentedColormap, Normalize, to_rgb
 from matplotlib.lines import Line2D
+from matplotlib.ticker import MultipleLocator, PercentFormatter
 from mplsoccer import Pitch, Radar, VerticalPitch
 from scipy.ndimage import gaussian_filter
 
 AQUI = Path(__file__).resolve().parent
+ROOT = AQUI.parent
 EQUIPO_ID = 1229
 TORNEOS = ["Apertura 2023", "Apertura 2024", "Clausura 2024", "Clausura 2025"]
-CARPETA_SALIDA = Path(r"C:\Users\pablo\modelo_ame_final\graficas")
+CARPETA_SALIDA = ROOT / "figuras"
 
 BUSCAR_EVENTOS = ["eventos_parquet", "eventos.parquet"]
 BUSCAR_TIROS = ["balon_parado_tiros.parquet", "balon_parado_tiros"]
 BUSCAR_STATS = ["player_match_stats.parquet", "player_match_stats"]
 BUSCAR_POSICIONES = ["posiciones.parquet", "posiciones"]
-CARPETAS = [AQUI, Path.cwd(), AQUI / "data" / "interim", AQUI / "data" / "processed", AQUI / "data" / "raw" / "parquet"]
+BUSCAR_ALINEACIONES = ["alineaciones.parquet", "alineaciones"]
+CARPETAS = [AQUI, Path.cwd(), AQUI / "data" / "interim", AQUI / "data" / "processed", AQUI / "data" / "raw" / "parquet",
+            ROOT / "data" / "interim", ROOT / "data" / "processed"]
 
 COLUMNAS_EVENTOS = ["match_id", "id", "index", "torneo", "period", "possession", "type_name", "team_name", "player_id",
                     "player_name", "es_equipo_analizado", "x", "y", "x_eq", "y_eq", "end_x", "end_y", "duel_type_name",
                     "pass_type_name", "pass_technique_name", "pass_outcome_name", "pass_completed",
-                    "pass_recipient_name", "shot_outcome_name",
+                    "pass_recipient_name", "shot_outcome_name", "shot_type_name",
                     "shot_statsbomb_xg"]
 COLUMNAS_TIROS = ["match_id", "index", "lado", "origen", "set_piece_type", "es_fk_directo", "x", "y", "xg", "gol"]
 MINUTOS = "player_match_minutes"
+
+
+# ----------------------------------------------------------------------------- estilo común
+# Paleta del reporte (diseno_html/DESIGN.md): el América siempre en marino y el rival en gris cálido
+TINTA = "#0F1A2E"
+TINTA_SUAVE = "#4A5568"
+FONDO = "#FFFFFF"
+LINEA_CANCHA = "#B8C2D1"
+MARINO = "#0A1F44"
+AMARILLO = "#FFD23F"  # solo como acento encima de una marca marina, nunca como texto ni suelto sobre blanco
+RIVAL = "#7D746A"
+GRIS_TIRO = "#7A8494"
+NEUTRO = "#F3F3F2"
+RAMPA_MARINO = ["#EEF1F6", "#C9D3E6", "#93A6C8", "#5C76A3", "#2E4A7A", MARINO]  # de claro a oscuro
+RAMPA_RIVAL = ["#EFEDEA", "#D6D1CB", "#B5ADA4", "#8F867C", "#6B635A", "#4A433C"]
+CMAP_MARINO = LinearSegmentedColormap.from_list("marino", RAMPA_MARINO)
+# Divergente: gris cálido (rival) a la izquierda, neutro claro al centro, marino (América) a la derecha
+CMAP_DIVERGENTE = LinearSegmentedColormap.from_list("rival_america", RAMPA_RIVAL[:0:-1] + [NEUTRO] + RAMPA_MARINO[1:])
+FUENTES = ["Segoe UI", "Helvetica Neue", "Arial", "DejaVu Sans"]
+
+
+def aplicar_estilo():
+    plt.rcParams.update({
+        "font.family": "sans-serif", "font.sans-serif": FUENTES,
+        "text.color": TINTA, "axes.labelcolor": TINTA, "xtick.color": TINTA_SUAVE, "ytick.color": TINTA_SUAVE,
+        "figure.facecolor": FONDO, "axes.facecolor": FONDO, "savefig.facecolor": FONDO,
+        "legend.frameon": False, "legend.fontsize": 11,
+    })
+
+
+def luminancia(color):
+    canal = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in to_rgb(color)]
+    return 0.2126 * canal[0] + 0.7152 * canal[1] + 0.0722 * canal[2]
+
+
+def texto_sobre(color):
+    # Blanco o tinta, el que contraste más con el color de fondo
+    lum = luminancia(color)
+    return FONDO if 1.05 / (lum + 0.05) >= (lum + 0.05) / (luminancia(TINTA) + 0.05) else TINTA
+
+
+def ficha(ax, texto):
+    # Una sola línea chica con la n, arriba a la izquierda de la cancha
+    ax.text(0, 1.01, texto, transform=ax.transAxes, ha="left", va="bottom", fontsize=11, color=TINTA_SUAVE)
+
+
+def ficha_figura(fig, texto, y=0.99, tamano=12):
+    # La misma ficha para las figuras de varios paneles, arriba a la izquierda de la figura
+    fig.text(0.01, y, texto, ha="left", va="top", fontsize=tamano, color=TINTA_SUAVE, linespacing=1.4)
+
+
+def rotulo_panel(ax, nombre, detalle="", tamano=12, separacion=4):
+    # Lo que identifica a cada panel (jugador, lado, tipo de jugada): nombre en tinta y detalle en tinta suave
+    alto = 0
+    if detalle:
+        ax.annotate(detalle, xy=(0.5, 1), xycoords="axes fraction", xytext=(0, separacion), textcoords="offset points",
+                    ha="center", va="bottom", fontsize=tamano - 1.5, color=TINTA_SUAVE, linespacing=1.3)
+        alto = (detalle.count("\n") + 1) * (tamano - 1.5) * 1.4
+    ax.set_title(nombre, fontsize=tamano, fontweight="bold", color=TINTA, pad=separacion + alto + 4)
+
+
+def colores_equipo(propios):
+    # Color fuerte, color medio y borde del gol: el América en marino con borde amarillo, el rival en gris cálido
+    if propios:
+        return MARINO, RAMPA_MARINO[3], AMARILLO
+    return RIVAL, RAMPA_RIVAL[3], FONDO
+
+
+def flecha_ataque(ax, y=-0.035):
+    ax.annotate("", xy=(0.57, y), xytext=(0.45, y), xycoords="axes fraction",
+                arrowprops=dict(arrowstyle="-|>", color=TINTA_SUAVE, lw=1.5, mutation_scale=14))
+    ax.text(0.44, y, "Ataque", transform=ax.transAxes, ha="right", va="center", fontsize=11, color=TINTA_SUAVE)
+
+
+def porterias(ax, izquierda=None, derecha="Portería del rival", tamano=10.5):
+    # Rótulo de cada portería en una cancha horizontal, girado junto a la línea de meta
+    izquierda = izquierda or f"Portería del {equipo}"
+    ax.text(-1.5, 40, izquierda, rotation=90, ha="right", va="center", fontsize=tamano, color=TINTA_SUAVE)
+    ax.text(121.5, 40, derecha, rotation=270, ha="left", va="center", fontsize=tamano, color=TINTA_SUAVE)
+
+
+def porteria_arriba(ax, texto, tamano=10.5):
+    # Rótulo de la portería de una cancha vertical, a un lado del arco y sobre la línea de meta
+    ax.annotate(texto, xy=(46, 120), xytext=(0, 3), textcoords="offset points", ha="left", va="bottom",
+                fontsize=tamano, color=TINTA_SUAVE)
+
+
+def con_signo(valor):
+    valor = round(float(valor), 1)
+    return "0.0" if valor == 0 else f"{valor:+.1f}".replace("-", "−")
+
+
+def rotular_celdas(pitch, ax, stat, cmap, norma, formato, **kw):
+    # Valor en cada celda con el color de texto que mejor contrasta con la celda
+    for x, y, v in zip(stat["cx"].ravel(), stat["cy"].ravel(), stat["statistic"].ravel()):
+        if np.isnan(v):
+            continue
+        pitch.annotate(formato(v), xy=(x, y), ax=ax, ha="center", va="center", zorder=3,
+                       color=texto_sobre(cmap(norma(v))), **kw)
+
+
+def valor_celda(stat, x, y):
+    # Valor de la celda cuyo centro queda más cerca del punto
+    i = np.argmin((stat["cx"] - x) ** 2 + (stat["cy"] - y) ** 2)
+    return stat["statistic"].ravel()[i]
+
+
+def barra_color(fig, ax, mapeable, y=-0.12, ancho=0.34):
+    cax = ax.inset_axes([(1 - ancho) / 2, y, ancho, 0.025])
+    barra = fig.colorbar(mapeable, cax=cax, orientation="horizontal")
+    barra.outline.set_visible(False)
+    barra.ax.tick_params(length=0, labelsize=10, labelcolor=TINTA_SUAVE, pad=4)
+    return barra
 
 
 class FaltaDato(Exception):
@@ -80,6 +198,34 @@ def leer(ruta, columnas, descripcion):
 def corto_nombre(n):
     p = str(n).split()
     return p[0] if len(p) == 1 else f"{p[0]} {p[-1]}"
+
+
+def cargar_apodos():
+    # Mapa player_id -> nombre deportivo; si falta el parquet o la columna, se sigue con corto_nombre
+    try:
+        al = leer(buscar(BUSCAR_ALINEACIONES, "las alineaciones"), ["player_id", "player_name", "player_nickname"],
+                  "la tabla de alineaciones")
+    except FaltaDato as e:
+        print(f"Aviso: sin apodos, uso el nombre corto. {e}")
+        return {}
+    al = al.dropna(subset=["player_id", "player_nickname"])
+    al = al[al["player_nickname"].astype(str).str.strip() != ""]
+    return dict(zip(al["player_id"].astype("int64"), al["player_nickname"].astype(str).str.strip()))
+
+
+APODOS = cargar_apodos()
+
+
+def nombre_jugador(player_id, player_name):
+    # Apodo deportivo si existe; si no, primer nombre + último apellido
+    apodo = APODOS.get(int(player_id)) if pd.notna(player_id) else None
+    return apodo or corto_nombre(player_name)
+
+
+def nombre_corto(player_id, player_name):
+    # Apodo sin el primer nombre cuando tiene dos palabras o más (para etiquetas apretadas)
+    palabras = nombre_jugador(player_id, player_name).split()
+    return " ".join(palabras[1:]) if len(palabras) > 1 else palabras[0]
 
 
 def guardar(fig, torneo, nombre, dpi=150, **kw):
@@ -138,13 +284,11 @@ def cargar_stats(columnas):
 
 # ----------------------------------------------------------------------------- 1. actividad defensiva vs rival
 def actividad_defensiva():
+    aplicar_estilo()
     tipos = ["Pressure", "Foul Committed", "Interception", "Block"]
-    colores = ["#171832", "#323A60", "#45537F", "#7183A3", "#B5C6D5", "#D3DEE4", "#DEDFE0",
-               "#F2BAAD", "#F7A18E", "#F17B67", "#E84335", "#E11F19", "#B40B0E"]
-    cmap = LinearSegmentedColormap.from_list("statsbomb", colores)
-    pitch = Pitch(pitch_type="statsbomb", line_zorder=2, line_color="black")
+    pitch = Pitch(pitch_type="statsbomb", line_zorder=2, line_color=LINEA_CANCHA)
 
-    estadisticas = {}
+    estadisticas, totales = {}, {}
     for t, d in por_torneo.items():
         defensivas = d[(d["period"] < 5) & (
             d["type_name"].isin(tipos)
@@ -157,58 +301,74 @@ def actividad_defensiva():
         s_rival = pitch.bin_statistic(rival.x, rival.y, statistic="count", bins=(6, 5))
         s["statistic"] = s["statistic"] / s["statistic"].sum() * 100 - s_rival["statistic"] / s_rival["statistic"].sum() * 100
         estadisticas[t] = s
+        totales[t] = (len(propias), len(rival))
     # Misma escala de color en los 4 torneos para que se puedan comparar entre sí
     limite = max(np.abs(s["statistic"]).max() for s in estadisticas.values())
+    norma = Normalize(-limite, limite)
 
     for t in torneos:
         fig, ax = plt.subplots(figsize=(11, 8))
-        fig.suptitle(f"¿Dónde defiende {equipo} frente a su rival?", fontsize=20, fontweight="bold")
         pitch.draw(ax=ax)
-        hm = pitch.heatmap(estadisticas[t], ax=ax, cmap=cmap, vmin=-limite, vmax=limite, zorder=1)
-        pitch.label_heatmap(estadisticas[t], ax=ax, str_format="{:+.1f}", fontsize=13, fontweight="bold", ha="center",
-                            va="center", zorder=3, path_effects=[pe.withStroke(linewidth=3, foreground="white")])
-        ax.set_title(f"{t}  ({por_torneo[t]['match_id'].nunique()} partidos)", fontsize=15, fontweight="bold")
-        cbar = fig.colorbar(hm, ax=ax, shrink=0.7, pad=0.02)
-        cbar.set_ticks([-limite, 0, limite])
-        cbar.set_ticklabels(["menos que\nel rival", "igual", "más que\nel rival"], fontsize=11)
-        fig.text(0.5, 0.02, f"Puntos porcentuales: % de las acciones defensivas de {equipo} en cada zona menos el % del rival.\n"
-                 f"{equipo} ataca de izquierda a derecha (su portería es la de la izquierda).", ha="center", fontsize=11)
+        hm = pitch.heatmap(estadisticas[t], ax=ax, cmap=CMAP_DIVERGENTE, norm=norma, zorder=1, edgecolors=FONDO, linewidth=1)
+        rotular_celdas(pitch, ax, estadisticas[t], CMAP_DIVERGENTE, norma, con_signo, fontsize=13, fontweight="bold")
+        n_propias, n_rival = totales[t]
+        ficha(ax, f"{t} · {por_torneo[t]['match_id'].nunique()} partidos · {n_propias:,} acciones defensivas del {equipo} "
+                  f"y {n_rival:,} del rival · diferencia en puntos porcentuales\n"
+                  f"El {equipo} y el rival aparecen con la portería que defienden a la izquierda")
+        porterias(ax, "Portería que defiende cada equipo", "Portería que ataca")
+        flecha_ataque(ax)
+        barra = barra_color(fig, ax, hm)
+        barra.set_ticks([-limite, 0, limite])
+        barra.set_ticklabels([con_signo(-limite), "0", con_signo(limite)])
+        barra.ax.text(-0.03, 0.5, "Más peso en la defensa del rival", transform=barra.ax.transAxes, ha="right",
+                      va="center", fontsize=11, color=TINTA)
+        barra.ax.text(1.03, 0.5, f"Más peso en la defensa del {equipo}", transform=barra.ax.transAxes, ha="left",
+                      va="center", fontsize=11, color=TINTA)
         guardar(fig, t, "1_actividad_defensiva.png")
 
 
 # ----------------------------------------------------------------------------- 2. flujo de pases
 def flujo_pases():
-    pitch = Pitch(pitch_type="statsbomb", pitch_color="#101010", line_color="#8a97a3", line_zorder=3)
-    cmap_flujo = LinearSegmentedColormap.from_list("flujo", ["#101010", "#1f3b63", "#2f6f9f", "#4fa3c7"])
+    aplicar_estilo()
+    pitch = Pitch(pitch_type="statsbomb", line_color=LINEA_CANCHA, line_zorder=3)
+    pases_t, estadisticas = {}, {}
     for t in torneos:
         d = por_torneo[t]
         pases = d[(d["type_name"] == "Pass") & d["es_equipo_analizado"] & d["pass_outcome_name"].isna()]
-        pases = pases.dropna(subset=["x", "y", "end_x", "end_y"])
+        pases_t[t] = pases.dropna(subset=["x", "y", "end_x", "end_y"])
+        estadisticas[t] = pitch.bin_statistic(pases_t[t].x, pases_t[t].y, statistic="count", bins=(8, 6), normalize=True)
+    # Misma escala de color en los 4 torneos para que se puedan comparar entre sí
+    norma = Normalize(0, max(s["statistic"].max() for s in estadisticas.values()))
 
+    for t in torneos:
+        pases, stat = pases_t[t], estadisticas[t]
         fig, ax = plt.subplots(figsize=(12, 8.5))
-        fig.set_facecolor("#101010")
-        fig.suptitle(f"Hacia dónde circula el balón - {equipo}", fontsize=20, fontweight="bold", color="white")
         pitch.draw(ax=ax)
-        stat = pitch.bin_statistic(pases.x, pases.y, statistic="count", bins=(8, 6), normalize=True)
-        pitch.heatmap(stat, ax=ax, cmap=cmap_flujo, zorder=1)
-        pitch.flow(pases.x, pases.y, pases.end_x, pases.end_y, bins=(8, 6), arrow_type="same", arrow_length=8,
-                   color="#f4f1de", ax=ax, zorder=4, width=1.4, headwidth=4, headlength=4)
-        ax.set_title(f"{t}  ({d['match_id'].nunique()} partidos, {len(pases)} pases completados)", color="white",
-                     fontsize=14, pad=8)
-        ax.annotate("", xy=(0.62, -0.03), xytext=(0.38, -0.03), xycoords="axes fraction",
-                    arrowprops=dict(arrowstyle="->", color="#8a97a3", lw=1.5))
-        fig.text(0.5, 0.01, "Cada flecha es la dirección promedio de los pases completados que salen de esa zona;\n"
-                 "el azul más claro marca las zonas desde donde salen más pases. Ataque de izquierda a derecha.",
-                 ha="center", color="#c8d0d8", fontsize=11)
-        guardar(fig, t, "2_flujo_pases.png", facecolor=fig.get_facecolor())
+        hm = pitch.heatmap(stat, ax=ax, cmap=CMAP_MARINO, norm=norma, zorder=1, edgecolors=FONDO, linewidth=1)
+        flechas = pitch.flow(pases.x, pases.y, pases.end_x, pases.end_y, bins=(8, 6), arrow_type="same", arrow_length=8,
+                             color=TINTA, ax=ax, zorder=4, width=1.4, headwidth=4, headlength=4)
+        # Cada flecha va en blanco o en tinta según el color de la celda donde empieza
+        flechas.set_color([texto_sobre(CMAP_MARINO(norma(valor_celda(stat, x, y)))) for x, y in zip(flechas.X, flechas.Y)])
+        ficha(ax, f"{t} · {por_torneo[t]['match_id'].nunique()} partidos · {len(pases):,} pases completados")
+        porterias(ax)
+        flecha_ataque(ax)
+        barra = barra_color(fig, ax, hm)
+        barra.ax.xaxis.set_major_locator(MultipleLocator(0.01))
+        barra.ax.xaxis.set_major_formatter(PercentFormatter(xmax=1, decimals=0))
+        barra.set_label("% de los pases completados del torneo que salen de cada zona", fontsize=11, color=TINTA,
+                        labelpad=6)
+        barra.ax.xaxis.set_label_position("top")
+        ax.legend(handles=[Line2D([], [], ls="", marker=r"$\rightarrow$", ms=16, color=TINTA,
+                                  label="Dirección promedio de los pases que salen de la zona (en blanco sobre las zonas oscuras)")],
+                  loc="upper center", bbox_to_anchor=(0.5, -0.17), fontsize=11, handletextpad=0.3)
+        guardar(fig, t, "2_flujo_pases.png")
 
 
 # ----------------------------------------------------------------------------- 3. mapa de calor defensivo
 def mapa_calor_defensivo():
+    aplicar_estilo()
     acciones = ["Ball Recovery", "Duel", "Interception", "Clearance", "Block"]
-    colores = ["#ffffff", "#fde0c5", "#facba6", "#f59e72", "#f17b50", "#e8553a", "#c8302a", "#8f1d21"]
-    cmap = LinearSegmentedColormap.from_list("defensivo", colores)
-    pitch = Pitch(pitch_type="statsbomb", line_zorder=2, line_color="#222222")
+    pitch = Pitch(pitch_type="statsbomb", line_zorder=2, line_color=LINEA_CANCHA)
 
     estadisticas, totales = {}, {}
     for t, d in por_torneo.items():
@@ -216,68 +376,86 @@ def mapa_calor_defensivo():
         estadisticas[t] = pitch.bin_statistic(acc.x, acc.y, statistic="count", bins=(6, 5), normalize=True)
         totales[t] = len(acc)
     vmax = max(s["statistic"].max() for s in estadisticas.values())
+    norma = Normalize(0, vmax)
 
     for t in torneos:
         fig, ax = plt.subplots(figsize=(11, 8))
-        fig.suptitle(f"Acciones defensivas de {equipo}", fontsize=20, fontweight="bold")
         pitch.draw(ax=ax)
-        hm = pitch.heatmap(estadisticas[t], ax=ax, cmap=cmap, vmin=0, vmax=vmax, zorder=1, edgecolors="white")
-        pitch.label_heatmap(estadisticas[t], ax=ax, str_format="{:.0%}", fontsize=13, fontweight="bold", ha="center",
-                            va="center", zorder=3, path_effects=[pe.withStroke(linewidth=3, foreground="white")])
-        ax.set_title(f"{t}  ({por_torneo[t]['match_id'].nunique()} partidos), {totales[t]} acciones", fontsize=15,
-                     fontweight="bold")
-        cbar = fig.colorbar(hm, ax=ax, shrink=0.7, pad=0.02)
-        cbar.set_ticks([0, vmax])
-        cbar.set_ticklabels(["menos", "más"], fontsize=12)
-        fig.text(0.5, 0.02, "Porcentaje de las acciones defensivas del torneo en cada zona (Ball Recovery, Duel, Interception, Clearance, Block).\n"
-                 f"{equipo} ataca de izquierda a derecha (su portería es la de la izquierda).", ha="center", fontsize=11)
+        hm = pitch.heatmap(estadisticas[t], ax=ax, cmap=CMAP_MARINO, norm=norma, zorder=1, edgecolors=FONDO, linewidth=1)
+        rotular_celdas(pitch, ax, estadisticas[t], CMAP_MARINO, norma, lambda v: f"{v:.0%}", fontsize=13,
+                       fontweight="bold")
+        ficha(ax, f"{t} · {por_torneo[t]['match_id'].nunique()} partidos · {totales[t]:,} acciones defensivas del {equipo}")
+        porterias(ax)
+        flecha_ataque(ax)
+        barra = barra_color(fig, ax, hm)
+        barra.ax.xaxis.set_major_locator(MultipleLocator(0.05))
+        barra.ax.xaxis.set_major_formatter(PercentFormatter(xmax=1, decimals=0))
+        barra.set_label("% de las acciones defensivas del torneo en cada zona", fontsize=11, color=TINTA, labelpad=6)
+        barra.ax.xaxis.set_label_position("top")
         guardar(fig, t, "3_mapa_calor_defensivo.png")
 
 
 # ----------------------------------------------------------------------------- 3 y 4. tiros a favor / en contra
-def mapa_tiros(nombre, etiqueta, propios):
-    pitch_t = VerticalPitch(pitch_type="statsbomb", goal_type="box", half=True)
-    leyenda = [Line2D([], [], marker="o", ls="", ms=12, mfc="white", mec="black", label="Tiros"),
-               Line2D([], [], marker="o", ls="", ms=12, mfc="blue", mec="black", label="Goles")]
+def area_xg(xg):
+    # Área del punto proporcional al xG del tiro
+    return np.nan_to_num(np.asarray(xg, dtype=float)) * 1000 + 25
+
+
+def mapa_tiros(nombre, propios):
+    aplicar_estilo()
+    pitch_t = VerticalPitch(pitch_type="statsbomb", goal_type="box", half=True, line_color=LINEA_CANCHA)
+    relleno_gol, _, borde_gol = colores_equipo(propios)
+    leyenda = ([Line2D([], [], marker="o", ls="", ms=11, mfc=relleno_gol, mec=borde_gol, mew=1.5, label="Gol"),
+                Line2D([], [], marker="o", ls="", ms=11, mfc="none", mec=GRIS_TIRO, label="Sin gol")]
+               + [Line2D([], [], marker="o", ls="", ms=np.sqrt(area_xg(v)), mfc="none", mec=GRIS_TIRO, label=f"{v} xG")
+                  for v in (0.05, 0.2, 0.5)])
     for t in torneos:
         d = por_torneo[t]
-        tiros = d[(d["type_name"] == "Shot") & (d["es_equipo_analizado"] == propios) & (d["period"] < 5)].dropna(subset=["x", "y"])
+        # Sin penales, igual que el xG del reporte
+        tiros = d[(d["type_name"] == "Shot") & (d["es_equipo_analizado"] == propios) & (d["period"] < 5)
+                  & (d["shot_type_name"] != "Penalty")].dropna(subset=["x", "y"])
         goles = tiros[tiros["shot_outcome_name"] == "Goal"]
         no_goles = tiros[tiros["shot_outcome_name"] != "Goal"]
 
         fig, ax = plt.subplots(figsize=(9, 8))
-        fig.suptitle(f"{etiqueta} {equipo}", fontsize=20, fontweight="bold")
         pitch_t.draw(ax=ax)
-        pitch_t.scatter(no_goles.x, no_goles.y, ax=ax, s=no_goles.shot_statsbomb_xg.fillna(0) * 1000 + 25,
-                        alpha=.6, ec="black", color="white", zorder=1)
-        pitch_t.scatter(goles.x, goles.y, ax=ax, s=goles.shot_statsbomb_xg.fillna(0) * 1000 + 25,
-                        alpha=.9, ec="black", color="blue", zorder=2)
-        ax.set_title(f"{t}  ({d['match_id'].nunique()} partidos)", fontsize=15, fontweight="bold")
-        ax.text(0.97, 0.03, f"{len(tiros)} tiros\n{len(goles)} goles\n{tiros.shot_statsbomb_xg.sum():.1f} xG",
-                transform=ax.transAxes, va="bottom", ha="right", fontsize=13, fontweight="bold",
-                bbox=dict(fc="white", ec="black", alpha=.85))
-        fig.legend(handles=leyenda, loc="lower center", ncol=2, fontsize=13, shadow=True, edgecolor="black")
+        pitch_t.scatter(no_goles.x, no_goles.y, ax=ax, s=area_xg(no_goles.shot_statsbomb_xg), facecolors="none",
+                        edgecolors=GRIS_TIRO, linewidths=0.9, zorder=2)
+        pitch_t.scatter(goles.x, goles.y, ax=ax, s=area_xg(goles.shot_statsbomb_xg), color=relleno_gol,
+                        edgecolors=borde_gol, linewidths=1.5, zorder=3)
+        ficha(ax, f"{t} · {d['match_id'].nunique()} partidos · {len(tiros):,} tiros · {len(goles):,} goles · "
+                  f"{tiros.shot_statsbomb_xg.sum():.1f} xG")
+        porteria_arriba(ax, "Portería del rival" if propios else f"Portería del {equipo}")
+        ax.legend(handles=leyenda, loc="upper center", bbox_to_anchor=(0.5, -0.01), ncol=5, fontsize=11,
+                  handletextpad=0.4, columnspacing=1.6)
         guardar(fig, t, nombre)
 
 
 def tiros_ataque():
-    mapa_tiros("3_tiros_ataque.png", "Ataque", True)
+    mapa_tiros("3_tiros_ataque.png", True)
 
 
 def tiros_defensa():
-    mapa_tiros("4_tiros_defensa.png", "Defensa", False)
+    mapa_tiros("4_tiros_defensa.png", False)
 
 
 # ----------------------------------------------------------------------------- 5. red de pases
 def red_pases(min_pases_jugador=100, min_pases_enlace=15):
-    pitch_r = Pitch(pitch_type="statsbomb", line_color="#555")
+    aplicar_estilo()
+    pitch_r = Pitch(pitch_type="statsbomb", line_color=LINEA_CANCHA)
     for t in torneos:
         d = por_torneo[t]
         pases = d[(d["type_name"] == "Pass") & d["es_equipo_analizado"]]
         completados = pases[(pases["pass_completed"].fillna(False).astype(bool)) & pases["pass_recipient_name"].notna()]
 
-        posiciones = completados.groupby("player_name").agg(x=("x_eq", "mean"), y=("y_eq", "mean"), count=("x_eq", "count"))
+        posiciones = completados.groupby("player_name").agg(x=("x_eq", "mean"), y=("y_eq", "mean"), count=("x_eq", "count"),
+                                                            pid=("player_id", "first"))
         posiciones = posiciones[posiciones["count"] >= min_pases_jugador]
+        etiquetas = {j: nombre_corto(r.pid, j) for j, r in posiciones.iterrows()}
+        repetidas = {e for e in etiquetas.values() if list(etiquetas.values()).count(e) > 1}
+        for j in etiquetas:
+            if etiquetas[j] in repetidas:
+                etiquetas[j] = nombre_jugador(posiciones.at[j, "pid"], j)
 
         enlaces = (completados.groupby(["player_name", "pass_recipient_name"]).id.count().reset_index()
                    .rename(columns={"player_name": "pasador", "pass_recipient_name": "receptor", "id": "pass_count"}))
@@ -286,69 +464,138 @@ def red_pases(min_pases_jugador=100, min_pases_enlace=15):
         enlaces = enlaces[enlaces["pass_count"] >= min_pases_enlace]
 
         fig, ax = plt.subplots(figsize=(12, 8.5))
-        fig.suptitle(f"Red de pases de {equipo}", fontsize=20, fontweight="bold")
         pitch_r.draw(ax=ax)
+        max_enlace = enlaces.pass_count.max()
         pitch_r.lines(enlaces.x, enlaces.y, enlaces.x_end, enlaces.y_end,
-                      lw=enlaces.pass_count / enlaces.pass_count.max() * 7, color="#1f4e9c", alpha=.5, ax=ax, zorder=1)
-        pitch_r.scatter(posiciones.x, posiciones.y, s=posiciones["count"] / posiciones["count"].max() * 900 + 60,
-                        color="#57920f", edgecolors="black", ax=ax, zorder=2)
-        for jugador, r in posiciones.iterrows():
-            pitch_r.annotate(jugador.split()[0], xy=(r.x, r.y), ax=ax, ha="center", va="center", fontsize=9, zorder=3)
-        ax.set_title(f"{t}  ({d['match_id'].nunique()} partidos)", fontsize=15, fontweight="bold")
-        fig.text(0.5, 0.02, f"Posición promedio del torneo. Jugadores con al menos {min_pases_jugador} pases completados y "
-                 f"conexiones de al menos {min_pases_enlace} pases.", ha="center", fontsize=11)
+                      lw=enlaces.pass_count / max_enlace * 7, color=RAMPA_MARINO[3], alpha=.55, ax=ax, zorder=1)
+        max_nodo = posiciones["count"].max()
+        tamanos = posiciones["count"] / max_nodo * 900 + 60
+        pitch_r.scatter(posiciones.x, posiciones.y, s=tamanos, color=MARINO, edgecolors=FONDO, linewidths=1.5, ax=ax,
+                        zorder=2)
+        colocar_nombres(fig, ax, posiciones.x, posiciones.y, np.sqrt(tamanos) / 2,
+                        [etiquetas[j] for j in posiciones.index])
+        ficha(ax, f"{t} · {d['match_id'].nunique()} partidos · {len(posiciones)} jugadores con {min_pases_jugador} pases "
+                  f"completados o más · {len(enlaces)} conexiones de {min_pases_enlace} pases o más")
+        porterias(ax)
+        flecha_ataque(ax)
+        # Leyendas de tamaño del punto y grosor de la línea con valores redondos del propio torneo
+        nodos = redondos(min_pases_jugador, max_nodo)
+        lineas = redondos(min_pases_enlace, max_enlace)
+        ley_nodos = ax.legend(handles=[Line2D([], [], ls="", marker="o", ms=np.sqrt(v / max_nodo * 900 + 60), mfc=MARINO,
+                                              mec=FONDO, label=f"{v:,}") for v in nodos],
+                              title="Pases completados del jugador", loc="upper left", bbox_to_anchor=(0.02, -0.07),
+                              ncol=len(nodos), fontsize=11, title_fontsize=11, columnspacing=1.2, handletextpad=0.5,
+                              handleheight=2.6)
+        ley_nodos._legend_box.align = "left"
+        ax.add_artist(ley_nodos)
+        ley_lineas = ax.legend(handles=[Line2D([], [], color=RAMPA_MARINO[3], alpha=.55, lw=v / max_enlace * 7,
+                                               label=f"{v:,}") for v in lineas],
+                               title="Pases entre los dos jugadores", loc="upper right", bbox_to_anchor=(0.98, -0.07),
+                               ncol=len(lineas), fontsize=11, title_fontsize=11, columnspacing=1.2, handlelength=2.5)
+        ley_lineas._legend_box.align = "left"
         guardar(fig, t, "5_red_pases.png")
+
+
+def redondos(minimo, maximo):
+    # Tres valores redondos entre el mínimo del filtro y el máximo observado, para las leyendas de tamaño
+    paso = 10 ** max(int(np.log10(max(maximo, 1))) - 1, 0) * 5
+    medio = max(round((minimo + maximo) / 2 / paso) * paso, minimo)
+    alto = max(int(maximo // paso) * paso, medio)
+    return sorted({int(minimo), int(medio), int(alto)})
+
+
+def colocar_nombres(fig, ax, xs, ys, radios, textos, tamano=11):
+    # Cada nombre prueba abajo, arriba, derecha e izquierda de su punto y se queda con el lugar que menos choca
+    # con los puntos y con los nombres ya puestos
+    xs, ys, radios = np.asarray(xs, dtype=float), np.asarray(ys, dtype=float), np.asarray(radios, dtype=float)
+    fig.canvas.draw()
+    render = fig.canvas.get_renderer()
+    escala = fig.dpi / 72
+    centros = ax.transData.transform(np.column_stack([xs, ys]))
+    ocupado = [(cx - r * escala, cy - r * escala, cx + r * escala, cy + r * escala)
+               for (cx, cy), r in zip(centros, radios)]
+    halo = [pe.withStroke(linewidth=3, foreground="white")]
+
+    def choque(caja):
+        return sum(choque_con(caja, b) for b in ocupado)
+
+    orden = np.argsort(-radios)
+    for i in orden:
+        r = radios[i] + 3
+        mejor = None
+        for dx, dy, ha, va in [(0, -r, "center", "top"), (0, r, "center", "bottom"), (r, 0, "left", "center"),
+                               (-r, 0, "right", "center")]:
+            texto = ax.annotate(textos[i], xy=(xs[i], ys[i]), xytext=(dx, dy), textcoords="offset points",
+                                ha=ha, va=va, fontsize=tamano, color=TINTA, zorder=3, path_effects=halo)
+            b = texto.get_window_extent(render)
+            caja = (b.x0, b.y0, b.x1, b.y1)
+            # Se descuenta el choque con su propio punto, que siempre toca por estar pegado a él
+            costo = choque(caja) - choque_con(caja, ocupado[i])
+            if mejor is None or costo < mejor[0]:
+                if mejor is not None:
+                    mejor[1].remove()
+                mejor = (costo, texto, caja)
+            else:
+                texto.remove()
+            if costo == 0:
+                break
+        ocupado.append(mejor[2])
+
+
+def choque_con(caja, otra):
+    # Área en que se enciman dos cajas (x0, y0, x1, y1) en pixeles
+    return (max(0, min(caja[2], otra[2]) - max(caja[0], otra[0]))
+            * max(0, min(caja[3], otra[3]) - max(caja[1], otra[1])))
 
 
 # ----------------------------------------------------------------------------- córners (mapa de calor)
 def corners():
+    aplicar_estilo()
     lados = ["Izquierda", "Derecha"]
-    paleta = ["white", "#9a9a9a", "#8f8f8f", "#858585", "#7a7a7a", "#707070", "#666666", "#5c5c5c", "#525252", "#484848",
-              "#3f3f3f", "#9a1120", "#a2111f", "#aa111e", "#b2111d", "#ba111c", "#c2111b", "#ca111a", "#d11119", "#d91018", "#e21017"]
-    cmap = LinearSegmentedColormap.from_list("statsbomb", paleta)
-    contorno = [pe.Stroke(linewidth=1.5, foreground="white"), pe.Normal()]
 
     cs = eventos[(eventos["type_name"] == "Pass") & (eventos["pass_type_name"] == "Corner") & eventos["es_equipo_analizado"]]
     cs = cs.dropna(subset=["x", "y", "end_x", "end_y"]).copy()
     cs["lado"] = np.where(cs["y"] < 40, "Izquierda", "Derecha")
     cs["corto"] = np.where(cs["lado"] == "Izquierda", cs["end_y"] <= 18, cs["end_y"] >= 62)
-    pitch = VerticalPitch(pitch_type="statsbomb", half=True, line_color="black", pad_bottom=-5)
+    # Solo la zona del área: la cancha se recorta desde x = 85 (el córner largo más corto de los 4 torneos cae en 86.9)
+    pitch = VerticalPitch(pitch_type="statsbomb", half=True, line_color=LINEA_CANCHA, line_zorder=2, pad_bottom=-25,
+                          pad_top=3)
 
     for t in torneos:
-        fig, axs = plt.subplots(1, 2, figsize=(15, 6.5))
-        fig.suptitle(f"Hacia dónde cobra los córners - {equipo}\n{t} ({partidos_torneo[t]} partidos)", fontsize=18,
-                     fontweight="bold")
-        fig.subplots_adjust(top=0.80, wspace=0.25)
+        fig, axs = plt.subplots(1, 2, figsize=(15, 4.9))
+        fig.subplots_adjust(top=0.7, bottom=0.02, left=0.01, right=0.99, wspace=0.06)
+        ficha_figura(fig, f"{t} · {partidos_torneo[t]} partidos · {(cs['torneo'] == t).sum():,} córners del {equipo}\n"
+                          "Cada número es el % de los córners de ese lado (sin los cortos) que cae en la zona · "
+                          "cada punto gris es un córner", y=1.0)
         for ax, lado in zip(axs, lados):
             todos = cs[(cs["torneo"] == t) & (cs["lado"] == lado)]
             data = todos[~todos["corto"]]
             pitch.draw(ax=ax)
-            ax.set_ylim(72, 122)
-            cabecera = f"Córners {lado.lower()}"
+            porteria_arriba(ax, "Portería del rival", tamano=11)
+            cabecera = f"Desde la {lado.lower()}"
             if data.empty:
-                ax.set_title(f"{cabecera}: sin datos", fontsize=13)
+                rotulo_panel(ax, cabecera, "todos en corto")
                 continue
             stat = pitch.bin_statistic(data["end_x"], data["end_y"], statistic="count", bins=(15, 11), normalize=True)
-            pitch.heatmap(stat, edgecolors="white", cmap=cmap, ax=ax, alpha=0.75, zorder=3)
-            pitch.label_heatmap(stat, color="black", fontsize=11, fontweight="bold", ax=ax, ha="center", va="center",
-                                str_format="{:.0%}", path_effects=contorno, exclude_zeros=True)
-            pitch.scatter(data["end_x"], data["end_y"], ax=ax, color="grey", s=10)
+            norma = Normalize(0, stat["statistic"].max())
+            # Las zonas sin córners quedan en blanco
+            visible = dict(stat, statistic=np.where(stat["statistic"] > 0, stat["statistic"], np.nan))
+            pitch.heatmap(visible, edgecolors=FONDO, linewidth=1, cmap=CMAP_MARINO, norm=norma, ax=ax, zorder=1)
+            pitch.scatter(data["end_x"], data["end_y"], ax=ax, color=GRIS_TIRO, s=8, alpha=0.6, zorder=2.5)
+            rotular_celdas(pitch, ax, visible, CMAP_MARINO, norma, lambda v: f"{v:.0%}", fontsize=13, fontweight="bold")
             outs = (data["pass_technique_name"] == "Outswinging").mean() * 100
             ins = (data["pass_technique_name"] == "Inswinging").mean() * 100
             cobradores = todos.groupby("player_name").size().sort_values(ascending=False) / len(todos) * 100
-            texto = " | ".join(f"{corto_nombre(n)} ({p:.0f}%)" for n, p in cobradores.head(2).items())
-            ax.set_title(f"{cabecera}\nAl área: {len(data)} de {len(todos)} | Cobran: {texto}\n"
-                         f"Outswinging: {outs:.0f}% | Inswinging: {ins:.0f}%", fontsize=12)
+            ids_cobro = todos.groupby("player_name")["player_id"].first()
+            texto = " y ".join(f"{nombre_jugador(ids_cobro[n], n)} ({p:.0f}%)" for n, p in cobradores.head(2).items())
+            rotulo_panel(ax, cabecera, f"{len(data)} de {len(todos)} sin jugar en corto · cobran {texto}\n"
+                                       f"abiertos {outs:.0f}% · cerrados {ins:.0f}%", tamano=13)
         guardar(fig, t, "1_corners_mapa_calor.png", dpi=130)
 
 
 # ----------------------------------------------------------------------------- balón parado y saques de banda
 TIPOS_PARADO = [("Corner", "Corner", "Córner"), ("Free Kick", "Free Kick", "Tiro libre")]
 TIPO_SAQUE = ("Throw In", "Throw-in", "Saque de banda")
-COLOR_FLECHA = "#3a5a8c"
-COLOR_FALLIDO = "#9aa0a6"
-COLOR_TIRO = "#f2a900"
-COLOR_GOL = "#d62728"
 _cache = {}
 
 
@@ -391,52 +638,60 @@ def tiros_con_origen():
 
 
 def balon_parado():
+    aplicar_estilo()
     datos = tiros_con_origen()
     datos = datos[datos["set_piece_type"].isin([t[0] for t in TIPOS_PARADO])]
     torneos_bp = torneos_en(datos["torneo"])
-    pitch = VerticalPitch(pitch_type="statsbomb", line_color="#555555", line_zorder=1)
+    pitch = VerticalPitch(pitch_type="statsbomb", line_color=LINEA_CANCHA, line_zorder=1)
 
-    def figura(torneo, lado, titulo, nombre):
+    def figura(torneo, lado, nombre):
+        fuerte, medio, borde_gol = colores_equipo(lado == "a_favor")
         d_t = datos[(datos["torneo"] == torneo) & (datos["lado"] == lado)]
-        partidos = partidos_torneo[torneo]
         fig, axs = plt.subplots(1, len(TIPOS_PARADO), figsize=(13, 7.6))
-        fig.suptitle(f"{titulo}", fontsize=22, fontweight="bold", y=1.0)
-        fig.subplots_adjust(top=0.84, bottom=0.12, wspace=0.08)
-        fig.text(0.5, 0.915, f"{torneo} ({partidos} partidos) - origen del balón parado y lugar del tiro", ha="center", fontsize=14)
+        fig.subplots_adjust(top=0.9, bottom=0.12, wspace=0.08)
+        ficha_figura(fig, f"{torneo} · {partidos_torneo[torneo]} partidos · {len(d_t):,} tiros de córner o tiro libre · "
+                          f"{int(d_t['gol'].sum()):,} goles · {d_t['xg'].sum():.1f} xG", y=1.0)
         for ax, (clave, _, etiqueta) in zip(axs, TIPOS_PARADO):
             d = d_t[d_t["set_piece_type"] == clave]
             pitch.draw(ax=ax)
             ax.set_ylim(45, 122)
+            porteria_arriba(ax, "Portería del rival" if lado == "a_favor" else f"Portería del {equipo}")
             con = d[~d["sin_origen"] & ~d["directo"]]
-            pitch.arrows(con.x0, con.y0, con.x, con.y, ax=ax, color=COLOR_FLECHA, alpha=0.35, width=1.2,
+            pitch.arrows(con.x0, con.y0, con.x, con.y, ax=ax, color=medio, alpha=0.4, width=1.2,
                          headwidth=4, headlength=4, zorder=2)
             pitch.arrows(con[con["gol"]].x0, con[con["gol"]].y0, con[con["gol"]].x, con[con["gol"]].y, ax=ax,
-                         color=COLOR_GOL, alpha=0.9, width=1.8, headwidth=4, headlength=4, zorder=3)
-            pitch.scatter(con.x0, con.y0, ax=ax, s=18, color=COLOR_FLECHA, alpha=0.6, zorder=2)
+                         color=fuerte, alpha=0.95, width=1.8, headwidth=4, headlength=4, zorder=3)
+            pitch.scatter(con.x0, con.y0, ax=ax, s=18, color=medio, alpha=0.7, zorder=2)
             no_gol = d[~d["gol"]]
             gol = d[d["gol"]]
-            pitch.scatter(no_gol.x, no_gol.y, ax=ax, s=no_gol.xg.fillna(0) * 900 + 25, color="white", edgecolors="black",
-                          alpha=0.85, zorder=4)
-            pitch.scatter(gol.x, gol.y, ax=ax, s=gol.xg.fillna(0) * 900 + 40, color=COLOR_GOL, edgecolors="black",
-                          alpha=0.95, zorder=5)
+            pitch.scatter(no_gol.x, no_gol.y, ax=ax, s=no_gol.xg.fillna(0) * 900 + 25, facecolors=FONDO,
+                          edgecolors=GRIS_TIRO, linewidths=0.9, zorder=4)
+            pitch.scatter(gol.x, gol.y, ax=ax, s=gol.xg.fillna(0) * 900 + 40, color=fuerte, edgecolors=borde_gol,
+                          linewidths=1.5, zorder=5)
             dire = d[d["directo"]]
             if len(dire):
-                pitch.scatter(dire.x0, dire.y0, ax=ax, s=70, marker="D", color="#f2c14e", edgecolors="black", zorder=3)
-            ax.set_title(f"{etiqueta}: {len(d)} tiros, {int(d['gol'].sum())} {'gol' if int(d['gol'].sum()) == 1 else 'goles'}, {d['xg'].sum():.1f} xG",
-                         fontsize=13, fontweight="bold")
-        leyenda = [Line2D([], [], color=COLOR_FLECHA, lw=2, label="Origen → tiro"),
-                   Line2D([], [], marker="o", ls="", ms=10, mfc="white", mec="black", label="Tiro (tamaño = xG)"),
-                   Line2D([], [], marker="o", ls="", ms=10, mfc=COLOR_GOL, mec="black", label="Gol"),
-                   Line2D([], [], marker="D", ls="", ms=8, mfc="#f2c14e", mec="black", label="Tiro libre directo (sin pase)")]
-        fig.legend(handles=leyenda, loc="lower center", ncol=4, fontsize=12, frameon=False)
+                pitch.scatter(dire.x0, dire.y0, ax=ax, s=60, marker="D", facecolors="none", edgecolors=fuerte,
+                              linewidths=1.3, zorder=6)
+            goles = int(d["gol"].sum())
+            rotulo_panel(ax, etiqueta, f"{len(d):,} tiros · {goles} {'gol' if goles == 1 else 'goles'} · "
+                                       f"{d['xg'].sum():.1f} xG")
+        leyenda = [Line2D([], [], color=medio, lw=2, label="Del saque al tiro"),
+                   Line2D([], [], marker="o", ls="", ms=10, mfc="none", mec=GRIS_TIRO, label="Tiro (tamaño = xG)"),
+                   Line2D([], [], marker="o", ls="", ms=10, mfc=fuerte, mec=borde_gol, mew=1.5, label="Gol"),
+                   Line2D([], [], marker="D", ls="", ms=8, mfc="none", mec=fuerte, label="Tiro libre directo")]
+        # La leyenda va justo debajo de las canchas, que el aspecto fijo deja más bajas que su eje
+        axs[0].apply_aspect()
+        fig.legend(handles=leyenda, loc="upper center", bbox_to_anchor=(0.5, axs[0].get_position().y0 - 0.01), ncol=4,
+                   fontsize=12)
         guardar(fig, torneo, nombre, dpi=140)
 
     for t in torneos_bp:
-        figura(t, "a_favor", f"Balón parado a favor de {equipo}", "2_balon_parado_a_favor.png")
-        figura(t, "en_contra", f"Balón parado en contra de {equipo}", "3_balon_parado_en_contra.png")
+        figura(t, "a_favor", "2_balon_parado_a_favor.png")
+        figura(t, "en_contra", "3_balon_parado_en_contra.png")
 
 
 def saques_banda():
+    aplicar_estilo()
     datos = tiros_con_origen()
     # Todos los saques de banda (pases con pass_type_name = Throw-in)
     saques = eventos[(eventos["type_name"] == "Pass") & (eventos["pass_type_name"] == TIPO_SAQUE[1])].dropna(
@@ -451,48 +706,58 @@ def saques_banda():
     saques["tiro"] = saques["xg"].notna()
     saques["gol"] = saques["gol"].fillna(False).astype(bool)
     torneos_sb = torneos_en(saques["torneo"])
-    pitch = Pitch(pitch_type="statsbomb", line_color="#555555", line_zorder=1)
+    pitch = Pitch(pitch_type="statsbomb", line_color=LINEA_CANCHA, line_zorder=1)
 
-    def figura(torneo, propios, titulo, nombre):
+    def figura(torneo, propios, nombre):
+        fuerte, medio, borde_gol = colores_equipo(propios)
         d = saques[(saques["torneo"] == torneo) & (saques["es_equipo_analizado"] == propios)]
         fig, ax = plt.subplots(figsize=(14, 9.5))
         pitch.draw(ax=ax)
-        fig.suptitle(titulo, fontsize=22, fontweight="bold", y=0.97)
-        ax.set_title(f"{torneo} ({partidos_torneo[torneo]} partidos): {len(d)} saques de banda, {int(d['tiro'].sum())} con tiro, "
-                     f"{int(d['gol'].sum())} {'gol' if int(d['gol'].sum()) == 1 else 'goles'}", fontsize=14)
-        for sel, color, alpha, ancho, z in [(~d["completado"], COLOR_FALLIDO, 0.35, 1.4, 2),
-                                            (d["completado"] & ~d["tiro"], COLOR_FLECHA, 0.45, 1.4, 3),
-                                            (d["tiro"] & ~d["gol"], COLOR_TIRO, 0.95, 2.2, 4),
-                                            (d["gol"], COLOR_GOL, 1.0, 2.6, 5)]:
+        goles = int(d["gol"].sum())
+        ficha(ax, f"{torneo} · {partidos_torneo[torneo]} partidos · {len(d):,} saques de banda · "
+                  f"{int(d['tiro'].sum())} con tiro · {goles} {'gol' if goles == 1 else 'goles'}")
+        # La masa de saques va tenue y delgada; solo resaltan los que terminaron en tiro o gol
+        for sel, color, alpha, ancho, z in [(~d["completado"], GRIS_TIRO, 0.25, 0.9, 2),
+                                            (d["completado"] & ~d["tiro"], medio, 0.3, 0.9, 3),
+                                            (d["tiro"], fuerte, 1.0, 2.8, 4)]:
             p = d[sel]
             pitch.arrows(p.x, p.y, p.end_x, p.end_y, ax=ax, color=color, alpha=alpha, width=ancho,
                          headwidth=4, headlength=4, zorder=z)
-        leyenda = [Line2D([], [], color=COLOR_FLECHA, lw=3, label="Saque completado"),
-                   Line2D([], [], color=COLOR_FALLIDO, lw=3, label="Saque perdido"),
-                   Line2D([], [], color=COLOR_TIRO, lw=3, label="Saque que terminó en tiro"),
-                   Line2D([], [], color=COLOR_GOL, lw=3, label="Saque que terminó en gol")]
-        fig.legend(handles=leyenda, loc="lower center", ncol=4, fontsize=12, frameon=False)
-        fig.text(0.5, 0.075, "Cada flecha va de donde se sacó la banda a donde cayó el balón. Ataca de izquierda a derecha.",
-                 ha="center", fontsize=11)
+        # La jugada que acabó en tiro se cierra con un círculo: hueco si no fue gol, relleno si fue gol
+        tiro, gol = d[d["tiro"] & ~d["gol"]], d[d["gol"]]
+        pitch.scatter(tiro.end_x, tiro.end_y, ax=ax, s=110, facecolors=FONDO, edgecolors=fuerte, linewidths=2, zorder=5)
+        pitch.scatter(gol.end_x, gol.end_y, ax=ax, s=140, color=fuerte, edgecolors=borde_gol, linewidths=2, zorder=6)
+        if propios:
+            porterias(ax, f"Portería del {equipo}", "Portería del rival", tamano=11)
+        else:
+            porterias(ax, "Portería del rival", f"Portería del {equipo}", tamano=11)
+        flecha_ataque(ax, y=-0.03)
+        leyenda = [Line2D([], [], color=medio, lw=1.5, alpha=0.5, label="Saque completado"),
+                   Line2D([], [], color=GRIS_TIRO, lw=1.5, alpha=0.5, label="Saque perdido"),
+                   Line2D([], [], color=fuerte, lw=3, marker="o", ms=10, mfc=FONDO, mec=fuerte, mew=2,
+                          label="La jugada terminó en tiro"),
+                   Line2D([], [], color=fuerte, lw=3, marker="o", ms=11, mfc=fuerte, mec=borde_gol, mew=2,
+                          label="La jugada terminó en gol")]
+        ax.legend(handles=leyenda, loc="upper center", bbox_to_anchor=(0.5, -0.06), ncol=4, fontsize=12)
         guardar(fig, torneo, nombre, dpi=140)
 
     for t in torneos_sb:
-        figura(t, True, f"Saques de banda de {equipo}", "4_saques_banda_a_favor.png")
-        figura(t, False, f"Saques de banda del rival de {equipo}", "5_saques_banda_en_contra.png")
+        figura(t, True, "4_saques_banda_a_favor.png")
+        figura(t, False, "5_saques_banda_en_contra.png")
 
 
 # ----------------------------------------------------------------------------- mapa de calor por jugador
 def mapa_calor_jugadores(n_jugadores=11):
     sin_posicion = ["Starting XI", "Half Start", "Half End", "Substitution", "Tactical Shift", "Injury Stoppage",
                     "Referee Ball-Drop", "Player Off", "Player On", "Bad Behaviour", "Own Goal For", "Own Goal Against"]
-    cmap = LinearSegmentedColormap.from_list("zona", ["#ffffff", "#ffe3d6", "#f9b79c", "#ef7b5c", "#d9382f", "#9e1220"])
+    aplicar_estilo()
     ev = eventos[eventos["es_equipo_analizado"] & (eventos["period"] < 5) & ~eventos["type_name"].isin(sin_posicion)]
     ev = ev.dropna(subset=["x", "y", "player_id"]).copy()
     ev["player_id"] = ev["player_id"].astype("int64")
 
     stats = cargar_stats([])
     torneos_j = torneos_en(stats["torneo"])
-    pitch = Pitch(pitch_type="statsbomb", line_color="#444444", line_zorder=3, pad_top=2, pad_bottom=2)
+    pitch = Pitch(pitch_type="statsbomb", line_color=LINEA_CANCHA, line_zorder=3, pad_top=2, pad_bottom=2)
 
     for t in torneos_j:
         s = stats[stats["torneo"] == t]
@@ -501,11 +766,11 @@ def mapa_calor_jugadores(n_jugadores=11):
         partidos = s.groupby("player_id")["match_id"].nunique()
         ev_t = ev[ev["torneo"] == t]
 
-        fig, axs = plt.subplots(3, 4, figsize=(20, 12.5))
-        fig.suptitle(f"{equipo} - {t}", fontsize=26, fontweight="bold", y=1.0)
-        fig.subplots_adjust(top=0.88)
-        fig.text(0.5, 0.935, f"Zonas donde estuvo cada uno de los {len(minutos)} jugadores con más minutos "
-                 "(posición de sus acciones con balón y sin balón)", ha="center", fontsize=14)
+        # 3 columnas para que cada cancha se lea al ancho del reporte
+        fig, axs = plt.subplots(4, 3, figsize=(15, 17))
+        fig.subplots_adjust(top=0.93, bottom=0.01, left=0.03, right=0.97, hspace=0.42, wspace=0.12)
+        ficha_figura(fig, f"{t} · {partidos_torneo[t]} partidos · los {len(minutos)} jugadores con más minutos",
+                     y=0.995, tamano=13)
         plano = axs.flatten()
 
         for ax, (pid, mins) in zip(plano, minutos.items()):
@@ -516,17 +781,31 @@ def mapa_calor_jugadores(n_jugadores=11):
                 suave = gaussian_filter(stat["statistic"], 2.2)
                 suave = np.where(suave < suave.max() * 0.06, np.nan, suave)
                 stat["statistic"] = suave
-                pitch.heatmap(stat, ax=ax, cmap=cmap, zorder=1, alpha=0.9)
-                pitch.scatter(d.x.mean(), d.y.mean(), ax=ax, s=90, color="white", edgecolors="black", linewidth=1.5, zorder=4)
-            ax.set_title(f"{corto_nombre(nombres[pid])}\n{int(partidos[pid])} partidos, {int(mins)} min, {len(d)} acciones",
-                         fontsize=12, fontweight="bold")
+                pitch.heatmap(stat, ax=ax, cmap=CMAP_MARINO, zorder=1)
+                pitch.scatter(d.x.mean(), d.y.mean(), ax=ax, s=110, color=FONDO, edgecolors=TINTA, linewidth=1.5, zorder=4)
+            porterias(ax, f"Portería del {equipo}", "Portería del rival", tamano=11)
+            rotulo_panel(ax, nombre_jugador(pid, nombres[pid]),
+                         f"{int(partidos[pid])} partidos · {int(mins):,} min · {len(d):,} acciones", tamano=15)
 
         for ax in plano[len(minutos):]:
             ax.axis("off")
         if len(minutos) < len(plano):
-            plano[len(minutos)].text(0.0, 0.5, "Cuanto más oscuro el rojo, más\nacciones del jugador en esa zona\n"
-                                     "(cada mapa se mide contra el\npropio jugador).\n\nEl punto blanco es su posición\npromedio.\n\n"
-                                     "América ataca de izquierda a derecha.", fontsize=11.5, va="center", ha="left")
+            # Leyenda en el hueco que queda: escala de color, posición promedio y dirección de ataque
+            hueco = plano[len(minutos)]
+            barra = fig.colorbar(plt.cm.ScalarMappable(cmap=CMAP_MARINO), cax=hueco.inset_axes([0.08, 0.72, 0.8, 0.07]),
+                                 orientation="horizontal", ticks=[0, 1])
+            barra.outline.set_visible(False)
+            barra.ax.set_xticklabels(["menos", "más"])
+            barra.ax.tick_params(length=0, labelsize=13, labelcolor=TINTA_SUAVE)
+            barra.set_label("Acciones del jugador en la zona", fontsize=14, color=TINTA, labelpad=6)
+            barra.ax.xaxis.set_label_position("top")
+            hueco.scatter([0.1], [0.42], s=110, color=FONDO, edgecolors=TINTA, linewidth=1.5, transform=hueco.transAxes,
+                          clip_on=False)
+            hueco.text(0.17, 0.42, "Posición promedio", transform=hueco.transAxes, va="center", fontsize=14, color=TINTA)
+            hueco.annotate("", xy=(0.62, 0.16), xytext=(0.38, 0.16), xycoords="axes fraction",
+                           arrowprops=dict(arrowstyle="-|>", color=TINTA_SUAVE, lw=1.8, mutation_scale=16))
+            hueco.text(0.36, 0.16, "Ataque", transform=hueco.transAxes, ha="right", va="center", fontsize=14,
+                       color=TINTA_SUAVE)
         guardar(fig, t, f"mapa_calor_jugadores_{t.replace(' ', '_')}.png", dpi=120)
 
 
@@ -587,11 +866,10 @@ METRICAS = {
         ("player_match_touches_inside_box", "Toques en el\nárea por 90", "p90"),
     ],
 }
-COLOR_ROL = {"Portero": "#7a5195", "Defensa central": "#0F2A52", "Lateral / Carrilero": "#2a7f62",
-             "Pivote": "#b5651d", "Interior / Ofensivo": "#B8912B", "Extremo / Delantero": "#B40B0E"}
 
 
 def radar_posiciones(n_jugadores=11, min_minutos_escala=300):
+    aplicar_estilo()
     columnas_usadas = sorted({c for ms in METRICAS.values() for c, _, _ in ms})
     stats = cargar_stats(columnas_usadas)
 
@@ -627,7 +905,8 @@ def radar_posiciones(n_jugadores=11, min_minutos_escala=300):
         return pd.Series(fila)
 
     tabla = stats.groupby(["torneo", "player_id"]).apply(agregar, include_groups=False).reset_index()
-    nombres = stats.groupby("player_id")["player_name"].agg(lambda s: s.iloc[0]).map(corto_nombre)
+    nombres = pd.Series({pid: nombre_jugador(pid, n) for pid, n in
+                         stats.groupby("player_id")["player_name"].agg(lambda s: s.iloc[0]).items()})
     tabla["nombre"] = tabla["player_id"].map(nombres)
     tabla["rol"] = [rol_principal.get((t, p)) for t, p in zip(tabla["torneo"], tabla["player_id"])]
     torneos_r = torneos_en(tabla["torneo"])
@@ -664,39 +943,37 @@ def radar_posiciones(n_jugadores=11, min_minutos_escala=300):
         d = tabla[tabla["torneo"] == t].sort_values("minutos", ascending=False).head(n_jugadores)
         d = d[d["rol"].notna()]
         n = len(d)
-        fig, axs = plt.subplots(3, 4, figsize=(18, 15.5))
-        fig.suptitle(f"América - {t}", fontsize=26, fontweight="bold", y=0.985)
-        fig.text(0.5, 0.947, f"Los {n} jugadores con más minutos, con las métricas de su posición principal", ha="center", fontsize=14)
+        # 3 columnas para que cada radar se lea al ancho del reporte
+        fig, axs = plt.subplots(4, 3, figsize=(15, 22))
+        fig.subplots_adjust(top=0.92, bottom=0.01, left=0.06, right=0.94, hspace=0.42, wspace=0.42)
+        ficha_figura(fig, f"{t} · {partidos_torneo[t]} partidos · los {n} jugadores con más minutos\n"
+                          f"Cada eje va de 0 (o del mínimo) al máximo de los jugadores de la misma posición con "
+                          f"{min_minutos_escala} min o más en los cuatro torneos · el número es el valor del jugador",
+                     y=0.995, tamano=13)
         plano = axs.flatten()
 
         for ax, (_, fila) in zip(plano, d.iterrows()):
             rol = fila["rol"]
             ms = METRICAS[rol]
             radar = radares[rol]
-            color = COLOR_ROL[rol]
             valores = []
             for c, _, _ in ms:
                 lo, hi = limites[(rol, c)]
                 v = fila[c] if pd.notna(fila[c]) else lo
                 valores.append(min(max(v, lo), hi))
             radar.setup_axis(ax=ax)
-            radar.draw_circles(ax=ax, facecolor="#f2f2f2", edgecolor="#cccccc")
-            res = radar.draw_radar(valores, ax=ax, kwargs_radar={"facecolor": color, "alpha": 0.6},
-                                   kwargs_rings={"facecolor": color, "alpha": 0.1})
-            radar.draw_param_labels(ax=ax, fontsize=8)
+            radar.draw_circles(ax=ax, facecolor="#F4F6F9", edgecolor="#D5DBE5")
+            res = radar.draw_radar(valores, ax=ax, kwargs_radar={"facecolor": MARINO, "alpha": 0.55},
+                                   kwargs_rings={"facecolor": MARINO, "alpha": 0.08})
+            radar.draw_param_labels(ax=ax, fontsize=12, color=TINTA_SUAVE)
             for (x, y), (c, _, tipo) in zip(res[2], ms):
-                ax.text(x, y, formato(fila[c], tipo), fontsize=8, ha="center", va="center", fontweight="bold",
-                        bbox=dict(boxstyle="round,pad=0.15", fc="white", ec=color, lw=0.6, alpha=0.9))
-            ax.set_title(f"{fila['nombre']}\n{rol}\n{int(fila['partidos'])} partidos, {int(fila['minutos'])} min",
-                         fontsize=11.5, fontweight="bold", y=1.07)
+                ax.text(x, y, formato(fila[c], tipo), fontsize=12, ha="center", va="center", fontweight="bold",
+                        color=TINTA, bbox=dict(boxstyle="round,pad=0.2", fc=FONDO, ec=MARINO, lw=0.6))
+            rotulo_panel(ax, fila["nombre"], f"{rol} · {int(fila['partidos'])} partidos · {int(fila['minutos']):,} min",
+                         tamano=15, separacion=26)
 
         for ax in plano[n:]:
             ax.axis("off")
-        if n < len(plano):
-            plano[n].text(0.0, 0.5, "Cada jugador se mide en la posición\nque más minutos jugó en el torneo.\n\n"
-                          "Los conteos son por 90 minutos y los\nporcentajes están ponderados por minutos.\n\n"
-                          "La escala es la misma para los 4 torneos\ny se calcula con los jugadores de esa\nposición con al menos "
-                          f"{min_minutos_escala} min en un torneo.", fontsize=10.5, va="center", ha="left")
         guardar(fig, t, f"radar_posiciones_{t.replace(' ', '_')}.png", dpi=130)
 
 
@@ -717,14 +994,24 @@ GRAFICAS = {
 
 
 def main():
+    global CARPETA_SALIDA
     # Sin argumentos genera todas. Los argumentos que no sean nombres de gráfica se ignoran
     # (así no estorban los que meten algunos editores al ejecutar).
-    elegidas = [a for a in sys.argv[1:] if a in GRAFICAS] or list(GRAFICAS)
+    argumentos = sys.argv[1:]
+    if "--salida" in argumentos:
+        i = argumentos.index("--salida")
+        if i + 1 >= len(argumentos):
+            sys.exit("Falta la carpeta después de --salida.")
+        CARPETA_SALIDA = Path(argumentos[i + 1]).resolve()
+        del argumentos[i:i + 2]
+    elegidas = [a for a in argumentos if a in GRAFICAS] or list(GRAFICAS)
     omitidas = []
     for nombre in elegidas:
         print(f"\n== {nombre} ==")
         try:
-            GRAFICAS[nombre]()
+            # El estilo que fije cada gráfica no pasa a la siguiente
+            with plt.rc_context():
+                GRAFICAS[nombre]()
         except FaltaDato as e:
             print("Omitida:", e)
             omitidas.append(nombre)
