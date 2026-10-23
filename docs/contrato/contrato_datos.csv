@@ -1,0 +1,939 @@
+tabla,columna,tipo,origen,regla,relleno,puede_faltar
+partidos,match_id,Int64,match_id,Sin cambios.,,False
+partidos,match_date,datetime64[us],match_date,Texto -> fecha.,,False
+partidos,kick_off,string,kick_off,Sin cambios.,,False
+partidos,home_score,Int64,home_score,Sin cambios.,,False
+partidos,away_score,Int64,away_score,Sin cambios.,,False
+partidos,behind_closed_doors,boolean,behind_closed_doors,Sin cambios.,,False
+partidos,neutral_ground,boolean,neutral_ground,Sin cambios.,,False
+partidos,collection_status,category,collection_status,Sin cambios.,,False
+partidos,play_status,category,play_status,Sin cambios.,,False
+partidos,match_status,category,match_status,Sin cambios.,,False
+partidos,match_status_360,category,match_status_360,Sin cambios.,,False
+partidos,last_updated,datetime64[us],last_updated,Texto ISO -> fecha y hora.,,False
+partidos,last_updated_360,datetime64[us],last_updated_360,Texto ISO -> fecha y hora.,,False
+partidos,match_week,Int64,match_week,Sin cambios.,,False
+partidos,competition_id,Int64,competition.competition_id,Sin cambios.,,False
+partidos,competition_country_name,category,competition.country_name,Sin cambios.,,False
+partidos,competition_name,category,competition.competition_name,Sin cambios.,,False
+partidos,season_id,Int64,season.season_id,Sin cambios.,,False
+partidos,season_name,category,season.season_name,Sin cambios.,,False
+partidos,home_team_id,Int64,home_team.home_team_id,Sin cambios.,,False
+partidos,home_team_name,category,home_team.home_team_name,Sin cambios.,,False
+partidos,home_team_gender,category,home_team.home_team_gender,Sin cambios.,,False
+partidos,home_team_youth,boolean,home_team.home_team_youth,Sin cambios.,,False
+partidos,home_team_country_id,Int64,home_team.country.id,Sin cambios.,,False
+partidos,home_team_country_name,category,home_team.country.name,Sin cambios.,,False
+partidos,away_team_id,Int64,away_team.away_team_id,Sin cambios.,,False
+partidos,away_team_name,category,away_team.away_team_name,Sin cambios.,,False
+partidos,away_team_gender,category,away_team.away_team_gender,Sin cambios.,,False
+partidos,away_team_youth,boolean,away_team.away_team_youth,Sin cambios.,,False
+partidos,away_team_country_id,Int64,away_team.country.id,Sin cambios.,,False
+partidos,away_team_country_name,category,away_team.country.name,Sin cambios.,,False
+partidos,metadata_data_version,category,metadata.data_version,Sin cambios.,,False
+partidos,metadata_shot_fidelity_version,category,metadata.shot_fidelity_version,Sin cambios.,,False
+partidos,metadata_xy_fidelity_version,category,metadata.xy_fidelity_version,Sin cambios.,,False
+partidos,competition_stage_id,Int64,competition_stage.id,Sin cambios.,,False
+partidos,competition_stage_name,category,competition_stage.name,Sin cambios.,,False
+partidos,stadium_id,Int64,stadium.id,Sin cambios.,,False
+partidos,stadium_name,category,stadium.name,Sin cambios.,,False
+partidos,stadium_country_id,Int64,stadium.country.id,Sin cambios.,,False
+partidos,stadium_country_name,category,stadium.country.name,Sin cambios.,,False
+partidos,referee_id,Int64,referee.id,Sin cambios.,,False
+partidos,referee_name,string,referee.name,Sin cambios.,,False
+partidos,referee_country_id,Int64,referee.country.id,Sin cambios.,,False
+partidos,referee_country_name,category,referee.country.name,Sin cambios.,,False
+partidos,torneo,category,partidos.parquet (derivada),"Derivada de match_date: julio a diciembre = Apertura, enero a junio = Clausura.",,False
+partidos,fase,category,partidos.parquet (derivada),"regular si competition_stage.id en {1, 42, 44}; liguilla en otro caso.",,False
+partidos,es_play_in,boolean,partidos.parquet (derivada),competition_stage.id = 2.,,False
+partidos,es_final,boolean,partidos.parquet (derivada),Dos últimos partidos de eliminación directa del torneo entre el mismo par de equipos (calculado sobre toda la liga).,,False
+partidos,entrenador_id,Int64,partidos.parquet (derivada),Agregada en la descarga con --manager-id.,,False
+partidos,equipo_id,Int64,partidos.parquet (derivada),Agregada en la descarga con --team-id.,,False
+partidos,es_local,boolean,partidos.parquet (derivada),Derivada en la descarga.,,False
+partidos,rival_id,Int64,partidos.parquet (derivada),Derivada en la descarga.,,False
+partidos,rival_nombre,category,partidos.parquet (derivada),Derivada en la descarga.,,False
+partidos,entrenador_rival,string,partidos.parquet (derivada),Derivada en la descarga.,,False
+partidos,entrenador_rival_id,Int64,partidos.parquet (derivada),Derivada en la descarga; Int64.,,False
+partidos,rival_coentrenador,boolean,partidos.parquet (derivada),Derivada en la descarga.,,False
+partidos,goles_favor,Int64,partidos.parquet (derivada),Derivada en la descarga.,,False
+partidos,goles_contra,Int64,partidos.parquet (derivada),Derivada en la descarga.,,False
+partidos,resultado,category,partidos.parquet (derivada),Derivada en la descarga.,,False
+partidos,coentrenador,boolean,partidos.parquet (derivada),Derivada en la descarga.,,False
+eventos,match_id,Int64,match_id (agregado por la descarga),Llave junto con index.,,False
+eventos,id,string,id,UUID; solo llave (no modelar). strip.,,False
+eventos,index,Int64,index,Entero.,,False
+eventos,period,Int64,period,Entero.,,False
+eventos,timestamp,string,timestamp,"Texto HH:MM:SS.mmm desde el inicio del periodo. Verificado: el mínimo por (match_id, period) es 00:00:00.000 en los 185 periodos de los 91 partidos.",,False
+eventos,minute,Int64,minute,Entero.,,False
+eventos,second,Int64,second,Entero.,,False
+eventos,possession,Int64,possession,Entero.,,False
+eventos,obv_for_after,float64,obv_for_after,Nulo legítimo (OBV solo en 10 tipos de evento); no imputar.,,False
+eventos,obv_for_before,float64,obv_for_before,Nulo legítimo (OBV solo en 10 tipos de evento); no imputar.,,False
+eventos,obv_for_net,float64,obv_for_net,Nulo legítimo (OBV solo en 10 tipos de evento); no imputar.,,False
+eventos,obv_against_after,float64,obv_against_after,Nulo legítimo (OBV solo en 10 tipos de evento); no imputar.,,False
+eventos,obv_against_before,float64,obv_against_before,Nulo legítimo (OBV solo en 10 tipos de evento); no imputar.,,False
+eventos,obv_against_net,float64,obv_against_net,Nulo legítimo (OBV solo en 10 tipos de evento); no imputar.,,False
+eventos,obv_total_net,float64,obv_total_net,Nulo legítimo (OBV solo en 10 tipos de evento); no imputar.,,False
+eventos,attacking_direction,category,attacking_direction,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,duration,float64,duration,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,type_id,Int64,type.id,Entero.,,False
+eventos,type_name,category,type.name,strip.,,False
+eventos,possession_team_id,Int64,possession_team.id,Entero.,,False
+eventos,possession_team_name,category,possession_team.name,strip.,,False
+eventos,play_pattern_id,Int64,play_pattern.id,Entero.,,False
+eventos,play_pattern_name,category,play_pattern.name,strip.,,False
+eventos,team_id,Int64,team.id,Entero.,,False
+eventos,team_name,category,team.name,strip.,,False
+eventos,tactics_formation,Int64,tactics.formation,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,control_degree,float64,control_degree,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,is_transition,boolean,is_transition,Nulo legítimo (solo juego abierto); no imputar.,,False
+eventos,is_controlled_possession,boolean,is_controlled_possession,Nulo legítimo (solo juego abierto); no imputar.,,False
+eventos,possession_directness,float64,possession_directness,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,player_possession_directness,float64,player_possession_directness,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,location_bucket,category,location_bucket,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,off_camera,boolean,off_camera,Ausente = False (rellenar con False).,False,False
+eventos,x,float64,location,"Lista JSON [x, y] -> columnas; sin ubicación queda nulo (no imputar, excluir de mapas).",,False
+eventos,y,float64,location,"Lista JSON [x, y] -> columnas; sin ubicación queda nulo (no imputar, excluir de mapas).",,False
+eventos,defensive_responsibility_categories,string,defensive_responsibility.categories,Lista guardada como texto JSON.,,False
+eventos,defensive_responsibility_probability_sum,float64,defensive_responsibility.probability_sum,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,player_id,Int64,player.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,player_name,string,player.name,strip.,,False
+eventos,position_id,Int64,position.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,position_name,category,position.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,pass_recipient_id,Int64,pass.recipient.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,pass_recipient_name,string,pass.recipient.name,strip.,,False
+eventos,pass_length,float64,pass.length,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,pass_angle,float64,pass.angle,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,pass_height_id,Int64,pass.height.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,pass_height_name,category,pass.height.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,end_x,float64,pass.end_location; carry.end_location; shot.end_location; goalkeeper.end_location,"Se separa [x, y(, z)]; un solo juego de columnas end_* para pass, carry, shot y goalkeeper (cada evento tiene a lo sumo uno; se interpreta con type_name). Nulo si no hay destino.",,False
+eventos,end_y,float64,pass.end_location; carry.end_location; shot.end_location; goalkeeper.end_location,"Se separa [x, y(, z)]; un solo juego de columnas end_* para pass, carry, shot y goalkeeper (cada evento tiene a lo sumo uno; se interpreta con type_name). Nulo si no hay destino.",,False
+eventos,pass_pass_success_probability,float64,pass.pass_success_probability,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,pass_body_part_id,Int64,pass.body_part.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,pass_body_part_name,category,pass.body_part.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,pass_type_id,Int64,pass.type.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,pass_type_name,category,pass.type.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,pass_pass_cluster_id,Int64,pass.pass_cluster_id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,pass_pass_cluster_label,category,pass.pass_cluster_label,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,pass_pass_cluster_probability,float64,pass.pass_cluster_probability,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,pass_switch,boolean,pass.switch,Ausente = False (rellenar con False).,False,False
+eventos,under_pressure,boolean,under_pressure,Ausente = False (rellenar con False).,False,False
+eventos,pass_assisted_shot_id,string,pass.assisted_shot_id,UUID que apunta a id de otro evento; strip.,,False
+eventos,pass_shot_assist,boolean,pass.shot_assist,Ausente = False (rellenar con False).,False,False
+eventos,shot_statsbomb_xg,float64,shot.statsbomb_xg,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,shot_shot_execution_xg,float64,shot.shot_execution_xg,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,shot_shot_execution_xg_uplift,float64,shot.shot_execution_xg_uplift,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,shot_gk_positioning_xg_suppression,float64,shot.gk_positioning_xg_suppression,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,end_z,float64,shot.end_location,"Se separa [x, y(, z)]; un solo juego de columnas end_* para pass, carry, shot y goalkeeper (cada evento tiene a lo sumo uno; se interpreta con type_name). Nulo si no hay destino.",,False
+eventos,shot_key_pass_id,string,shot.key_pass_id,UUID que apunta a id de otro evento; strip.,,False
+eventos,shot_type_id,Int64,shot.type.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,shot_type_name,category,shot.type.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,shot_technique_id,Int64,shot.technique.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,shot_technique_name,category,shot.technique.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,shot_outcome_id,Int64,shot.outcome.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,shot_outcome_name,category,shot.outcome.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,shot_body_part_id,Int64,shot.body_part.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,shot_body_part_name,category,shot.body_part.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,shot_first_time,boolean,shot.first_time,Ausente = False (rellenar con False).,False,False
+eventos,goalkeeper_type_id,Int64,goalkeeper.type.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,goalkeeper_type_name,category,goalkeeper.type.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,goalkeeper_position_id,Int64,goalkeeper.position.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,goalkeeper_position_name,category,goalkeeper.position.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,pass_outcome_id,Int64,pass.outcome.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,pass_outcome_name,category,pass.outcome.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,ball_receipt_outcome_id,Int64,ball_receipt.outcome.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,ball_receipt_outcome_name,category,ball_receipt.outcome.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,counterpress,boolean,counterpress,Ausente = False (rellenar con False).,False,False
+eventos,interception_outcome_id,Int64,interception.outcome.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,interception_outcome_name,category,interception.outcome.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,clearance_body_part_id,Int64,clearance.body_part.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,clearance_body_part_name,category,clearance.body_part.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,clearance_head,boolean,clearance.head,Ausente = False (rellenar con False).,False,False
+eventos,shot_gk_save_difficulty_xg,float64,shot.gk_save_difficulty_xg,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,shot_gk_shot_stopping_xg_suppression,float64,shot.gk_shot_stopping_xg_suppression,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,goalkeeper_body_part_id,Int64,goalkeeper.body_part.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,goalkeeper_body_part_name,category,goalkeeper.body_part.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,goalkeeper_outcome_id,Int64,goalkeeper.outcome.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,goalkeeper_outcome_name,category,goalkeeper.outcome.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,goalkeeper_technique_id,Int64,goalkeeper.technique.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,goalkeeper_technique_name,category,goalkeeper.technique.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,dribble_outcome_id,Int64,dribble.outcome.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,dribble_outcome_name,category,dribble.outcome.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,out,boolean,out,Ausente = False (rellenar con False).,False,False
+eventos,set_piece_phase,float64,set_piece_phase,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,pass_cross,boolean,pass.cross,Ausente = False (rellenar con False).,False,False
+eventos,duel_type_id,Int64,duel.type.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,duel_type_name,category,duel.type.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,duel_duel_win_probability,float64,duel.duel_win_probability,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,duel_hops_rating,float64,duel.hops_rating,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,duel_hops_raw_rating,float64,duel.hops_raw_rating,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,duel_hops_opponent_rating,float64,duel.hops_opponent_rating,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,duel_hops_opponent_raw_rating,float64,duel.hops_opponent_raw_rating,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,clearance_aerial_won,boolean,clearance.aerial_won,Ausente = False (rellenar con False).,False,False
+eventos,clearance_duel_win_probability,float64,clearance.duel_win_probability,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,shot_follows_dribble,boolean,shot.follows_dribble,Ausente = False (rellenar con False).,False,False
+eventos,clearance_other,boolean,clearance.other,Ausente = False (rellenar con False).,False,False
+eventos,clearance_right_foot,boolean,clearance.right_foot,Ausente = False (rellenar con False).,False,False
+eventos,pass_xclaim,float64,pass.xclaim,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,clearance_left_foot,boolean,clearance.left_foot,Ausente = False (rellenar con False).,False,False
+eventos,foul_committed_advantage,boolean,foul_committed.advantage,Ausente = False (rellenar con False).,False,False
+eventos,foul_won_advantage,boolean,foul_won.advantage,Ausente = False (rellenar con False).,False,False
+eventos,duel_outcome_id,Int64,duel.outcome.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,duel_outcome_name,category,duel.outcome.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,injury_stoppage_in_chain,boolean,injury_stoppage.in_chain,Ausente = False (rellenar con False).,False,False
+eventos,foul_won_defensive,boolean,foul_won.defensive,Ausente = False (rellenar con False).,False,False
+eventos,fifty_fifty_outcome_id,Int64,50_50.outcome.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,fifty_fifty_outcome_name,category,50_50.outcome.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,pass_inswinging,boolean,pass.inswinging,Ausente = False (rellenar con False).,False,False
+eventos,pass_technique_id,Int64,pass.technique.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,pass_technique_name,category,pass.technique.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,ball_recovery_recovery_failure,boolean,ball_recovery.recovery_failure,Ausente = False (rellenar con False).,False,False
+eventos,pass_aerial_won,boolean,pass.aerial_won,Ausente = False (rellenar con False).,False,False
+eventos,pass_duel_win_probability,float64,pass.duel_win_probability,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,pass_cut_back,boolean,pass.cut_back,Ausente = False (rellenar con False).,False,False
+eventos,pass_through_ball,boolean,pass.through_ball,Ausente = False (rellenar con False).,False,False
+eventos,dribble_nutmeg,boolean,dribble.nutmeg,Ausente = False (rellenar con False).,False,False
+eventos,foul_committed_card_id,Int64,foul_committed.card.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,foul_committed_card_name,category,foul_committed.card.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,foul_committed_offensive,boolean,foul_committed.offensive,Ausente = False (rellenar con False).,False,False
+eventos,foul_committed_type_id,Int64,foul_committed.type.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,foul_committed_type_name,category,foul_committed.type.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,ball_recovery_offensive,boolean,ball_recovery.offensive,Ausente = False (rellenar con False).,False,False
+eventos,substitution_outcome_id,Int64,substitution.outcome.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,substitution_outcome_name,category,substitution.outcome.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,substitution_replacement_id,Int64,substitution.replacement.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,substitution_replacement_name,string,substitution.replacement.name,strip.,,False
+eventos,pass_no_touch,boolean,pass.no_touch,Ausente = False (rellenar con False).,False,False
+eventos,pass_goal_assist,boolean,pass.goal_assist,Ausente = False (rellenar con False).,False,False
+eventos,pass_outswinging,boolean,pass.outswinging,Ausente = False (rellenar con False).,False,False
+eventos,pass_miscommunication,boolean,pass.miscommunication,Ausente = False (rellenar con False).,False,False
+eventos,miscontrol_aerial_won,boolean,miscontrol.aerial_won,Ausente = False (rellenar con False).,False,False
+eventos,miscontrol_duel_win_probability,float64,miscontrol.duel_win_probability,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,block_deflection,boolean,block.deflection,Ausente = False (rellenar con False).,False,False
+eventos,shot_aerial_won,boolean,shot.aerial_won,Ausente = False (rellenar con False).,False,False
+eventos,shot_duel_win_probability,float64,shot.duel_win_probability,Nulo fuera del tipo de evento correspondiente; no imputar.,,False
+eventos,pass_straight,boolean,pass.straight,Ausente = False (rellenar con False).,False,False
+eventos,shot_one_on_one,boolean,shot.one_on_one,Ausente = False (rellenar con False).,False,False
+eventos,shot_open_goal,boolean,shot.open_goal,Ausente = False (rellenar con False).,False,False
+eventos,pass_deflected,boolean,pass.deflected,Ausente = False (rellenar con False).,False,False
+eventos,bad_behaviour_card_id,Int64,bad_behaviour.card.id,Float por los vacíos -> Int64; nulo fuera del tipo de evento correspondiente.,,False
+eventos,bad_behaviour_card_name,category,bad_behaviour.card.name,strip; nulo fuera del tipo de evento correspondiente.,,False
+eventos,shot_shot_goal_assist,boolean,shot.shot_goal_assist,Ausente = False (rellenar con False).,False,False
+eventos,block_offensive,boolean,block.offensive,Ausente = False (rellenar con False).,False,False
+eventos,shot_redirect,boolean,shot.redirect,Ausente = False (rellenar con False).,False,False
+eventos,dribble_overrun,boolean,dribble.overrun,Ausente = False (rellenar con False).,False,False
+eventos,shot_saved_to_post,boolean,shot.saved_to_post,Ausente = False (rellenar con False).,False,False
+eventos,goalkeeper_shot_saved_to_post,boolean,goalkeeper.shot_saved_to_post,Ausente = False (rellenar con False).,False,False
+eventos,shot_shot_shot_assist,boolean,shot.shot_shot_assist,Ausente = False (rellenar con False).,False,False
+eventos,goalkeeper_punched_out,boolean,goalkeeper.punched_out,Ausente = False (rellenar con False).,False,False
+eventos,block_save_block,boolean,block.save_block,Ausente = False (rellenar con False).,False,False
+eventos,dribble_no_touch,boolean,dribble.no_touch,Ausente = False (rellenar con False).,False,False
+eventos,foul_committed_penalty,boolean,foul_committed.penalty,Ausente = False (rellenar con False).,False,False
+eventos,foul_won_penalty,boolean,foul_won.penalty,Ausente = False (rellenar con False).,False,False
+eventos,shot_deflected,boolean,shot.deflected,Ausente = False (rellenar con False).,False,False
+eventos,shot_saved_off_target,boolean,shot.saved_off_target,Ausente = False (rellenar con False).,False,False
+eventos,goalkeeper_shot_saved_off_target,boolean,goalkeeper.shot_saved_off_target,Ausente = False (rellenar con False).,False,False
+eventos,player_off_permanent,boolean,player_off.permanent,Ausente = False (rellenar con False).,False,False
+eventos,goalkeeper_success_in_play,boolean,goalkeeper.success_in_play,Ausente = False (rellenar con False).,False,False
+eventos,goalkeeper_lost_out,boolean,goalkeeper.lost_out,Ausente = False (rellenar con False). No existe en el parquet crudo de ninguno de los 91 partidos; se crea con False.,False,True
+eventos,goalkeeper_success_out,boolean,goalkeeper.success_out,Ausente = False (rellenar con False). No existe en el parquet crudo de ninguno de los 91 partidos; se crea con False.,False,True
+eventos,half_end_early_video_end,boolean,half_end.early_video_end,Ausente = False (rellenar con False). No existe en el parquet crudo de ninguno de los 91 partidos; se crea con False.,False,True
+eventos,half_end_match_suspended,boolean,half_end.match_suspended,Ausente = False (rellenar con False). No existe en el parquet crudo de ninguno de los 91 partidos; se crea con False.,False,True
+eventos,half_start_late_video_start,boolean,half_start.late_video_start,Ausente = False (rellenar con False). No existe en el parquet crudo de ninguno de los 91 partidos; se crea con False.,False,True
+eventos,pass_backheel,boolean,pass.backheel,Ausente = False (rellenar con False). No existe en el parquet crudo de ninguno de los 91 partidos; se crea con False.,False,True
+eventos,offside_advantage,boolean,offside.advantage,Ausente = False (rellenar con False). No existe en el parquet crudo de ninguno de los 91 partidos; se crea con False.,False,True
+eventos,shot_kick_off,boolean,shot.kick_off,Ausente = False (rellenar con False). No existe en el parquet crudo de ninguno de los 91 partidos; se crea con False.,False,True
+eventos,pass_completed,boolean,pass.outcome.name,Resultado vacío = éxito: True si type_name = Pass y pass_outcome_name es nulo; False si trae resultado. Nulo cuando type_name no es Pass.,,False
+eventos,receipt_ok,boolean,ball_receipt.outcome.name,Resultado vacío = éxito: True si type_name = 'Ball Receipt*' y el resultado es nulo; False si trae resultado. Nulo cuando type_name no es 'Ball Receipt*'.,,False
+eventos,match_second,Int64,"minute, second","minute * 60 + second. NO es único entre periodos (el 2o tiempo arranca en 2700 pero el 1o puede pasar de 2700): ordenar siempre por (match_id, index); match_second sirve para agrupar por tiempo dentro de (match_id, period).",,False
+eventos,es_administrativo,boolean,type.name,"True para Half Start, Half End, Starting XI, Tactical Shift, Substitution, Player On, Player Off, Injury Stoppage, Referee Ball-Drop y Camera On (contrato.ADMINISTRATIVOS); se conservan en la tabla. Camera On no tiene filas en los 91 partidos; está en la lista porque la especificación de Lee lo cuenta como administrativo.",,False
+eventos,torneo,category,partidos.torneo,"Unión con partidos por match_id; julio a diciembre = Apertura, enero a junio = Clausura.",,False
+eventos,fase,category,partidos.fase,"regular si competition_stage.id en {1, 42, 44}; liguilla en otro caso.",,False
+eventos,es_play_in,boolean,partidos.es_play_in,competition_stage.id = 2.,,False
+eventos,es_final,boolean,partidos.es_final,Dos últimos partidos de eliminación directa del torneo entre el mismo par de equipos (calculado sobre toda la liga).,,False
+eventos,es_equipo_analizado,boolean,"team.id, partidos.equipo_id",team_id == equipo_id del partido.,,False
+eventos,x_eq,float64,"x, es_equipo_analizado",x si es del equipo analizado; 120 - x si es del rival (así el equipo analizado siempre ataca hacia x = 120).,,False
+eventos,y_eq,float64,"y, es_equipo_analizado",y si es del equipo analizado; 80 - y si es del rival.,,False
+eventos,end_x_eq,float64,"end_x, es_equipo_analizado",end_x si es del equipo analizado; 120 - end_x si es del rival.,,False
+eventos,end_y_eq,float64,"end_y, es_equipo_analizado",end_y si es del equipo analizado; 80 - end_y si es del rival.,,False
+frames_360,match_id,Int64,match_id,Llave.,,False
+frames_360,event_uuid,string,event_uuid,strip. Llave junto con jugador_idx.,,False
+frames_360,jugador_idx,Int64,posición en la lista freeze_frame,explode con contador desde 0; el freeze frame no trae ids de jugador.,,False
+frames_360,teammate,boolean,freeze_frame[].teammate,Sin cambios.,,False
+frames_360,actor,boolean,freeze_frame[].actor,Sin cambios.,,False
+frames_360,keeper,boolean,freeze_frame[].keeper,Sin cambios.,,False
+frames_360,x,float64,freeze_frame[].location,"Se separa [x, y].",,False
+frames_360,y,float64,freeze_frame[].location,"Se separa [x, y].",,False
+frames_360,es_equipo_analizado,boolean,"freeze_frame[].teammate, eventos.team_id, partidos.equipo_id",Si el equipo del evento es el analizado: teammate; si no: not teammate. Que el evento no esté en eventos no ocurre en las tablas escritas: un frame sin su evento es un huérfano y detiene la corrida.,,False
+frames_360_evento,match_id,Int64,match_id,Llave.,,False
+frames_360_evento,event_uuid,string,event_uuid,strip.,,False
+frames_360_evento,visible_area,string,visible_area,"Polígono [x1, y1, x2, y2, ...] guardado como texto JSON.",,False
+frames_360_evento,visible_area_yd2,float64,visible_area,Fórmula del polígono (shoelace) sobre los puntos.,,False
+frames_360_evento,n_visibles_equipo,Int64,visible_player_counts[].count,"count del team_id igual al eventos.team_id del evento (unión por match_id y event_uuid); vale 0 si ese equipo no aparece en visible_player_counts. Es el equipo del evento (el actor), no el equipo analizado. Nulo si visible_player_counts viene vacío (2,253 frames, 0.8%). Que el evento no esté en eventos no ocurre en las tablas escritas: un frame sin su evento es un huérfano y detiene la corrida. El nulo significa sin conteo, no cero.",,False
+frames_360_evento,n_visibles_rival,Int64,visible_player_counts[].count,"count del otro equipo del partido (home_team_id/away_team_id de partidos); vale 0 si ese equipo no aparece en visible_player_counts y queda nulo si el equipo del evento no es ninguno de los dos. Nulo si visible_player_counts viene vacío (2,253 frames, 0.8%). Que el evento no esté en eventos no ocurre en las tablas escritas: un frame sin su evento es un huérfano y detiene la corrida. El nulo significa sin conteo, no cero.",,False
+frames_360_evento,line_breaking_pass,boolean,line_breaking_pass,Ausente = False.,False,False
+frames_360_evento,ball_receipt_in_space,boolean,ball_receipt_in_space,Ausente = False.,False,False
+frames_360_evento,num_defenders_on_goal_side_of_actor,float64,num_defenders_on_goal_side_of_actor,Nulo legítimo; no imputar.,,False
+frames_360_evento,distance_to_nearest_defender,float64,distance_to_nearest_defender,Nulo legítimo; filtrar por n_visibles_rival antes de usarlo.,,False
+frames_360_evento,ball_receipt_exceeds_distance,float64,ball_receipt_exceeds_distance,Nulo legítimo; no imputar.,,False
+frames_360_evento,distances_from_edge_of_visible_area,string,distances_from_edge_of_visible_area,"Lista de {point_id, distance} guardada como texto JSON.",,False
+alineaciones,match_id,Int64,match_id,Llave.,,False
+alineaciones,team_id,Int64,team_id,Llave junto con player_id.,,False
+alineaciones,team_name,category,team_name,strip.,,False
+alineaciones,player_id,Int64,lineup[].player_id,explode de lineup.,,False
+alineaciones,player_name,string,lineup[].player_name,strip.,,False
+alineaciones,player_nickname,string,lineup[].player_nickname,strip; nulo en 4.2% de las filas.,,False
+alineaciones,birth_date,datetime64[us],lineup[].birth_date,Texto -> fecha.,,False
+alineaciones,player_gender,category,lineup[].player_gender,Sin cambios.,,False
+alineaciones,player_height,float64,lineup[].player_height,"Sin cambios (cm); nulo en 0.1% de las filas, no se imputa.",,False
+alineaciones,player_weight,float64,lineup[].player_weight,"Sin cambios (kg); nulo en 2.3% de las filas, no se imputa.",,False
+alineaciones,jersey_number,Int64,lineup[].jersey_number,Int64.,,False
+alineaciones,country_id,Int64,lineup[].country.id,Int64.,,False
+alineaciones,country_name,category,lineup[].country.name,strip.,,False
+alineaciones,stats_goals,Int64,lineup[].stats.goals,"Vacío en 26.2% de las filas; se recalcula desde eventos, no se usa como fuente.",,False
+alineaciones,stats_assists,Int64,lineup[].stats.assists,Ídem (vacío en 26.2%).,,False
+alineaciones,stats_own_goals,Int64,lineup[].stats.own_goals,Ídem (vacío en 26.2%).,,False
+alineaciones,stats_penalties_scored,Int64,lineup[].stats.penalties_scored,Ídem (vacío en 26.2%).,,False
+alineaciones,stats_penalties_missed,Int64,lineup[].stats.penalties_missed,Ídem (vacío en 26.2%).,,False
+alineaciones,stats_penalties_saved,Int64,lineup[].stats.penalties_saved,Ídem (vacío en 26.2%).,,False
+alineaciones,skills_hops_rating,float64,lineup[].skills.HOPS.rating,Nulo legítimo (7.7%); no imputar.,,False
+alineaciones,skills_hops_raw_rating,float64,lineup[].skills.HOPS.raw_rating,Nulo legítimo (7.7%); no imputar.,,False
+posiciones,match_id,Int64,match_id,Llave.,,False
+posiciones,team_id,Int64,team_id,Llave.,,False
+posiciones,player_id,Int64,lineup[].player_id,Llave.,,False
+posiciones,posicion_idx,Int64,posición en lineup[].positions,explode con contador desde 0.,,False
+posiciones,position_id,Int64,lineup[].positions[].position_id,Int64.,,False
+posiciones,position,category,lineup[].positions[].position,strip.,,False
+posiciones,from,string,lineup[].positions[].from,"Texto HH:MM:SS.mmm, reloj corrido del partido: el segundo tiempo empieza en 00:45:00.000 aunque el primero haya terminado más tarde. to − from es la duración solo si from_period = to_period. 1,227 de los 2,174 tramos con to cruzan de periodo y en 2 de ellos to es menor que from. Si el tramo cruza de periodo, la duración se suma por periodo: el fin de cada periodo en el reloj corrido es el inicio de ese periodo más el timestamp del evento Half End de ese periodo en eventos (el timestamp se reinicia en cada periodo). Inicio verificado de los periodos 1 y 2 (mínimo de from por from_period): periodo 1 en 00:00:00.000 y periodo 2 en 00:45:00.000. Los periodos 3 y 4 (tiempo extra) no tienen inicio verificado, porque ningún tramo empieza al arrancarlos: 1 partido tiene tiempo extra y 17 tramos tocan esos periodos. Los datos son consistentes con inicios en 01:30:00.000 y 01:45:00.000, pero eso no está comprobado; el mínimo observado de from es 01:38:00.001 en el periodo 3 y 01:47:14.520 en el periodo 4 y solo sirve como cota, no como inicio. Verificado en los 4,150 tramos: todos los valores no nulos tienen el formato, el mínimo de from con from_period = 2 es exactamente 00:45:00.000 y el máximo de to es 02:01:11.394.",,False
+posiciones,to,string,lineup[].positions[].to,"Texto HH:MM:SS.mmm, reloj corrido del partido: el segundo tiempo empieza en 00:45:00.000 aunque el primero haya terminado más tarde. to − from es la duración solo si from_period = to_period. 1,227 de los 2,174 tramos con to cruzan de periodo y en 2 de ellos to es menor que from. Si el tramo cruza de periodo, la duración se suma por periodo: el fin de cada periodo en el reloj corrido es el inicio de ese periodo más el timestamp del evento Half End de ese periodo en eventos (el timestamp se reinicia en cada periodo). Inicio verificado de los periodos 1 y 2 (mínimo de from por from_period): periodo 1 en 00:00:00.000 y periodo 2 en 00:45:00.000. Los periodos 3 y 4 (tiempo extra) no tienen inicio verificado, porque ningún tramo empieza al arrancarlos: 1 partido tiene tiempo extra y 17 tramos tocan esos periodos. Los datos son consistentes con inicios en 01:30:00.000 y 01:45:00.000, pero eso no está comprobado; el mínimo observado de from es 01:38:00.001 en el periodo 3 y 01:47:14.520 en el periodo 4 y solo sirve como cota, no como inicio. Verificado en los 4,150 tramos: todos los valores no nulos tienen el formato, el mínimo de from con from_period = 2 es exactamente 00:45:00.000 y el máximo de to es 02:01:11.394. Nulo en 1,976 de 4,150 tramos (47.6%): el jugador siguió hasta el silbatazo final (end_reason = Final Whistle, último tramo del jugador). No se imputa un minuto; para calcular la duración, el fin es el Half End del último periodo jugado (C9; el periodo 5 son penales).",,False
+posiciones,from_period,Int64,lineup[].positions[].from_period,Int64.,,False
+posiciones,to_period,Int64,lineup[].positions[].to_period,Float con vacíos -> Int64.,,False
+posiciones,start_reason,category,lineup[].positions[].start_reason,strip.,,False
+posiciones,end_reason,category,lineup[].positions[].end_reason,strip; sirve para detectar rojas.,,False
+posiciones,counterpart_id,Int64,lineup[].positions[].counterpart_id,Float con vacíos -> Int64.,,False
+posiciones,counterpart_name,string,lineup[].positions[].counterpart_name,strip.,,False
+team_match_stats,match_id,Int64,match_id,Int64.,,False
+team_match_stats,team_id,Int64,team_id,Int64.,,False
+team_match_stats,team_name,category,team_name,strip.,,False
+team_match_stats,opposition_id,Int64,opposition_id,Int64.,,False
+team_match_stats,opposition_name,category,opposition_name,strip.,,False
+team_match_stats,competition_id,Int64,competition_id,Int64.,,False
+team_match_stats,competition_name,category,competition_name,strip.,,False
+team_match_stats,season_id,Int64,season_id,Int64.,,False
+team_match_stats,season_name,category,season_name,strip.,,False
+team_match_stats,team_female,boolean,team_female,Sin cambios.,,False
+team_match_stats,team_match_gd,Int64,team_match_gd,Sin cambios.,,False
+team_match_stats,team_match_xgd,float64,team_match_xgd,Sin cambios.,,False
+team_match_stats,team_match_np_shots,Int64,team_match_np_shots,Sin cambios.,,False
+team_match_stats,team_match_op_shots,Int64,team_match_op_shots,Sin cambios.,,False
+team_match_stats,team_match_op_shots_outside_box,Int64,team_match_op_shots_outside_box,Sin cambios.,,False
+team_match_stats,team_match_sp_shots,Int64,team_match_sp_shots,Sin cambios.,,False
+team_match_stats,team_match_np_xg,float64,team_match_np_xg,Sin cambios.,,False
+team_match_stats,team_match_op_xg,float64,team_match_op_xg,Sin cambios.,,False
+team_match_stats,team_match_sp_xg,float64,team_match_sp_xg,Sin cambios.,,False
+team_match_stats,team_match_np_xg_per_shot,float64,team_match_np_xg_per_shot,Sin cambios.,,False
+team_match_stats,team_match_np_shot_distance,float64,team_match_np_shot_distance,Sin cambios.,,False
+team_match_stats,team_match_op_shot_distance,float64,team_match_op_shot_distance,Sin cambios.,,False
+team_match_stats,team_match_sp_shot_distance,float64,team_match_sp_shot_distance,Sin cambios.,,False
+team_match_stats,team_match_possessions,Int64,team_match_possessions,Sin cambios.,,False
+team_match_stats,team_match_possession,float64,team_match_possession,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_directness,float64,team_match_directness,Sin cambios. No es una proporción: rango observado de 0.39 a 0.99.,,False
+team_match_stats,team_match_pace_towards_goal,float64,team_match_pace_towards_goal,Sin cambios.,,False
+team_match_stats,team_match_gk_pass_distance,float64,team_match_gk_pass_distance,Sin cambios.,,False
+team_match_stats,team_match_gk_long_pass_ratio,float64,team_match_gk_long_pass_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_box_cross_ratio,float64,team_match_box_cross_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_passes_inside_box,Int64,team_match_passes_inside_box,Sin cambios.,,False
+team_match_stats,team_match_defensive_distance,float64,team_match_defensive_distance,Sin cambios.,,False
+team_match_stats,team_match_ppda,float64,team_match_ppda,Sin cambios.,,False
+team_match_stats,team_match_defensive_distance_ppda,float64,team_match_defensive_distance_ppda,Sin cambios.,,False
+team_match_stats,team_match_opp_passing_ratio,float64,team_match_opp_passing_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_opp_final_third_pass_ratio,float64,team_match_opp_final_third_pass_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_np_shots_conceded,Int64,team_match_np_shots_conceded,Sin cambios.,,False
+team_match_stats,team_match_op_shots_conceded,Int64,team_match_op_shots_conceded,Sin cambios.,,False
+team_match_stats,team_match_op_shots_conceded_outside_box,Int64,team_match_op_shots_conceded_outside_box,Sin cambios.,,False
+team_match_stats,team_match_sp_shots_conceded,Int64,team_match_sp_shots_conceded,Sin cambios.,,False
+team_match_stats,team_match_np_xg_conceded,float64,team_match_np_xg_conceded,Sin cambios.,,False
+team_match_stats,team_match_op_xg_conceded,float64,team_match_op_xg_conceded,Sin cambios.,,False
+team_match_stats,team_match_sp_xg_conceded,float64,team_match_sp_xg_conceded,Sin cambios.,,False
+team_match_stats,team_match_np_xg_per_shot_conceded,float64,team_match_np_xg_per_shot_conceded,Sin cambios.,,False
+team_match_stats,team_match_np_shot_distance_conceded,float64,team_match_np_shot_distance_conceded,Sin cambios.,,False
+team_match_stats,team_match_op_shot_distance_conceded,float64,team_match_op_shot_distance_conceded,Sin cambios.,,False
+team_match_stats,team_match_deep_completions_conceded,Int64,team_match_deep_completions_conceded,Sin cambios.,,False
+team_match_stats,team_match_passes_inside_box_conceded,Int64,team_match_passes_inside_box_conceded,Sin cambios.,,False
+team_match_stats,team_match_corners,Int64,team_match_corners,Sin cambios.,,False
+team_match_stats,team_match_corner_xg,float64,team_match_corner_xg,Sin cambios.,,False
+team_match_stats,team_match_xg_per_corner,float64,team_match_xg_per_corner,Sin cambios.,,False
+team_match_stats,team_match_free_kicks,Int64,team_match_free_kicks,Sin cambios.,,False
+team_match_stats,team_match_free_kick_xg,float64,team_match_free_kick_xg,Sin cambios.,,False
+team_match_stats,team_match_xg_per_free_kick,float64,team_match_xg_per_free_kick,Sin cambios.,,False
+team_match_stats,team_match_direct_free_kicks,Int64,team_match_direct_free_kicks,Sin cambios.,,False
+team_match_stats,team_match_direct_free_kick_xg,float64,team_match_direct_free_kick_xg,Sin cambios.,,False
+team_match_stats,team_match_xg_per_direct_free_kick,float64,team_match_xg_per_direct_free_kick,Sin cambios.,,False
+team_match_stats,team_match_throw_ins,Int64,team_match_throw_ins,Sin cambios.,,False
+team_match_stats,team_match_throw_in_xg,float64,team_match_throw_in_xg,Sin cambios.,,False
+team_match_stats,team_match_xg_per_throw_in,float64,team_match_xg_per_throw_in,Sin cambios.,,False
+team_match_stats,team_match_ball_in_play_time,float64,team_match_ball_in_play_time,Sin cambios.,,False
+team_match_stats,team_match_counter_attacking_shots,Int64,team_match_counter_attacking_shots,Sin cambios.,,False
+team_match_stats,team_match_high_press_shots,Int64,team_match_high_press_shots,Sin cambios.,,False
+team_match_stats,team_match_shots_in_clear,Int64,team_match_shots_in_clear,Sin cambios.,,False
+team_match_stats,team_match_counter_attacking_shots_conceded,Int64,team_match_counter_attacking_shots_conceded,Sin cambios.,,False
+team_match_stats,team_match_shots_in_clear_conceded,Int64,team_match_shots_in_clear_conceded,Sin cambios.,,False
+team_match_stats,team_match_aggressive_actions,Int64,team_match_aggressive_actions,Sin cambios.,,False
+team_match_stats,team_match_aggression,float64,team_match_aggression,Sin cambios.,,False
+team_match_stats,team_match_goals,Int64,team_match_goals,Sin cambios.,,False
+team_match_stats,team_match_own_goals,Int64,team_match_own_goals,Sin cambios.,,False
+team_match_stats,team_match_penalty_goals,Int64,team_match_penalty_goals,Sin cambios.,,False
+team_match_stats,team_match_goals_conceded,Int64,team_match_goals_conceded,Sin cambios.,,False
+team_match_stats,team_match_opposition_own_goals,Int64,team_match_opposition_own_goals,Sin cambios.,,False
+team_match_stats,team_match_penalty_goals_conceded,Int64,team_match_penalty_goals_conceded,Sin cambios.,,False
+team_match_stats,team_match_shots_from_corners,Int64,team_match_shots_from_corners,Sin cambios.,,False
+team_match_stats,team_match_goals_from_corners,Int64,team_match_goals_from_corners,Sin cambios.,,False
+team_match_stats,team_match_shots_from_free_kicks,Int64,team_match_shots_from_free_kicks,Sin cambios.,,False
+team_match_stats,team_match_goals_from_free_kicks,Int64,team_match_goals_from_free_kicks,Sin cambios.,,False
+team_match_stats,team_match_direct_free_kick_goals,Int64,team_match_direct_free_kick_goals,Sin cambios.,,False
+team_match_stats,team_match_shots_from_direct_free_kicks,Int64,team_match_shots_from_direct_free_kicks,Sin cambios.,,False
+team_match_stats,team_match_shots_from_throw_ins,Int64,team_match_shots_from_throw_ins,Sin cambios.,,False
+team_match_stats,team_match_goals_from_throw_ins,Int64,team_match_goals_from_throw_ins,Sin cambios.,,False
+team_match_stats,team_match_direct_free_kick_goals_conceded,Int64,team_match_direct_free_kick_goals_conceded,Sin cambios.,,False
+team_match_stats,team_match_shots_from_direct_free_kicks_conceded,Int64,team_match_shots_from_direct_free_kicks_conceded,Sin cambios.,,False
+team_match_stats,team_match_corners_conceded,Int64,team_match_corners_conceded,Sin cambios.,,False
+team_match_stats,team_match_corner_xg_conceded,float64,team_match_corner_xg_conceded,Sin cambios.,,False
+team_match_stats,team_match_shots_from_corners_conceded,Int64,team_match_shots_from_corners_conceded,Sin cambios.,,False
+team_match_stats,team_match_goals_from_corners_conceded,Int64,team_match_goals_from_corners_conceded,Sin cambios.,,False
+team_match_stats,team_match_free_kicks_conceded,Int64,team_match_free_kicks_conceded,Sin cambios.,,False
+team_match_stats,team_match_free_kick_xg_conceded,float64,team_match_free_kick_xg_conceded,Sin cambios.,,False
+team_match_stats,team_match_shots_from_free_kicks_conceded,Int64,team_match_shots_from_free_kicks_conceded,Sin cambios.,,False
+team_match_stats,team_match_goals_from_free_kicks_conceded,Int64,team_match_goals_from_free_kicks_conceded,Sin cambios.,,False
+team_match_stats,team_match_direct_free_kicks_conceded,Int64,team_match_direct_free_kicks_conceded,Sin cambios.,,False
+team_match_stats,team_match_direct_free_kick_xg_conceded,float64,team_match_direct_free_kick_xg_conceded,Sin cambios.,,False
+team_match_stats,team_match_throw_ins_conceded,Int64,team_match_throw_ins_conceded,Sin cambios.,,False
+team_match_stats,team_match_throw_in_xg_conceded,float64,team_match_throw_in_xg_conceded,Sin cambios.,,False
+team_match_stats,team_match_shots_from_throw_ins_conceded,Int64,team_match_shots_from_throw_ins_conceded,Sin cambios.,,False
+team_match_stats,team_match_goals_from_throw_ins_conceded,Int64,team_match_goals_from_throw_ins_conceded,Sin cambios.,,False
+team_match_stats,team_match_corner_shot_ratio,float64,team_match_corner_shot_ratio,Sin cambios. Razón que puede pasar de 1 (máximo observado 2).,,False
+team_match_stats,team_match_corner_goal_ratio,float64,team_match_corner_goal_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_free_kick_shot_ratio,float64,team_match_free_kick_shot_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_free_kick_goal_ratio,float64,team_match_free_kick_goal_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_direct_free_kick_goal_ratio,float64,team_match_direct_free_kick_goal_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_throw_in_shot_ratio,float64,team_match_throw_in_shot_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_throw_in_goal_ratio,float64,team_match_throw_in_goal_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_xg_per_corner_conceded,float64,team_match_xg_per_corner_conceded,Sin cambios.,,False
+team_match_stats,team_match_corner_shot_ratio_conceded,float64,team_match_corner_shot_ratio_conceded,Sin cambios. Razón que puede pasar de 1 (máximo observado 2).,,False
+team_match_stats,team_match_corner_goal_ratio_conceded,float64,team_match_corner_goal_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_xg_per_free_kick_conceded,float64,team_match_xg_per_free_kick_conceded,Sin cambios.,,False
+team_match_stats,team_match_free_kick_shot_ratio_conceded,float64,team_match_free_kick_shot_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_free_kick_goal_ratio_conceded,float64,team_match_free_kick_goal_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_xg_per_throw_in_conceded,float64,team_match_xg_per_throw_in_conceded,Sin cambios.,,False
+team_match_stats,team_match_throw_in_shot_ratio_conceded,float64,team_match_throw_in_shot_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_throw_in_goal_ratio_conceded,float64,team_match_throw_in_goal_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_direct_free_kick_shot_ratio,float64,team_match_direct_free_kick_shot_ratio,Sin cambios. Razón que puede pasar de 1 (máximo observado 2).,,False
+team_match_stats,team_match_sp,Int64,team_match_sp,Sin cambios.,,False
+team_match_stats,team_match_xg_per_sp,float64,team_match_xg_per_sp,Sin cambios.,,False
+team_match_stats,team_match_sp_shot_ratio,float64,team_match_sp_shot_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_sp_goals,Int64,team_match_sp_goals,Sin cambios.,,False
+team_match_stats,team_match_sp_goal_ratio,float64,team_match_sp_goal_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_sp_conceded,Int64,team_match_sp_conceded,Sin cambios.,,False
+team_match_stats,team_match_xg_per_sp_conceded,float64,team_match_xg_per_sp_conceded,Sin cambios.,,False
+team_match_stats,team_match_sp_shot_ratio_conceded,float64,team_match_sp_shot_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_sp_goals_conceded,Int64,team_match_sp_goals_conceded,Sin cambios.,,False
+team_match_stats,team_match_sp_goal_ratio_conceded,float64,team_match_sp_goal_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_penalties_won,Int64,team_match_penalties_won,Sin cambios.,,False
+team_match_stats,team_match_penalties_conceded,Int64,team_match_penalties_conceded,Sin cambios.,,False
+team_match_stats,team_match_completed_dribbles,Int64,team_match_completed_dribbles,Sin cambios.,,False
+team_match_stats,team_match_failed_dribbles,Int64,team_match_failed_dribbles,Sin cambios.,,False
+team_match_stats,team_match_total_dribbles,Int64,team_match_total_dribbles,Sin cambios.,,False
+team_match_stats,team_match_dribble_ratio,float64,team_match_dribble_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_completed_dribbles_conceded,Int64,team_match_completed_dribbles_conceded,Sin cambios.,,False
+team_match_stats,team_match_failed_dribbles_conceded,Int64,team_match_failed_dribbles_conceded,Sin cambios.,,False
+team_match_stats,team_match_total_dribbles_conceded,Int64,team_match_total_dribbles_conceded,Sin cambios.,,False
+team_match_stats,team_match_opposition_dribble_ratio,float64,team_match_opposition_dribble_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_high_press_shots_conceded,Int64,team_match_high_press_shots_conceded,Sin cambios.,,False
+team_match_stats,team_match_np_gd,Int64,team_match_np_gd,Sin cambios.,,False
+team_match_stats,team_match_np_xgd,float64,team_match_np_xgd,Sin cambios.,,False
+team_match_stats,team_match_deep_completions,Int64,team_match_deep_completions,Sin cambios.,,False
+team_match_stats,team_match_passing_ratio,float64,team_match_passing_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_pressures,Int64,team_match_pressures,Sin cambios.,,False
+team_match_stats,team_match_counterpressures,Int64,team_match_counterpressures,Sin cambios.,,False
+team_match_stats,team_match_pressure_regains,Int64,team_match_pressure_regains,Sin cambios.,,False
+team_match_stats,team_match_counterpressure_regains,Int64,team_match_counterpressure_regains,Sin cambios.,,False
+team_match_stats,team_match_defensive_action_regains,Int64,team_match_defensive_action_regains,Sin cambios.,,False
+team_match_stats,team_match_yellow_cards,Int64,team_match_yellow_cards,Sin cambios.,,False
+team_match_stats,team_match_second_yellow_cards,Int64,team_match_second_yellow_cards,Sin cambios.,,False
+team_match_stats,team_match_red_cards,Int64,team_match_red_cards,Sin cambios.,,False
+team_match_stats,team_match_fhalf_pressures,Int64,team_match_fhalf_pressures,Sin cambios.,,False
+team_match_stats,team_match_fhalf_counterpressures,Int64,team_match_fhalf_counterpressures,Sin cambios.,,False
+team_match_stats,team_match_fhalf_pressures_ratio,float64,team_match_fhalf_pressures_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_fhalf_counterpressures_ratio,float64,team_match_fhalf_counterpressures_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_crosses_into_box,Int64,team_match_crosses_into_box,Sin cambios.,,False
+team_match_stats,team_match_successful_crosses_into_box,Int64,team_match_successful_crosses_into_box,Sin cambios.,,False
+team_match_stats,team_match_successful_box_cross_ratio,float64,team_match_successful_box_cross_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_deep_progressions,Int64,team_match_deep_progressions,Sin cambios.,,False
+team_match_stats,team_match_deep_progressions_conceded,Int64,team_match_deep_progressions_conceded,Sin cambios.,,False
+team_match_stats,team_match_obv,float64,team_match_obv,Sin cambios.,,False
+team_match_stats,team_match_obv_pass,float64,team_match_obv_pass,Sin cambios.,,False
+team_match_stats,team_match_obv_shot,float64,team_match_obv_shot,Sin cambios.,,False
+team_match_stats,team_match_obv_defensive_action,float64,team_match_obv_defensive_action,Sin cambios.,,False
+team_match_stats,team_match_obv_dribble_carry,float64,team_match_obv_dribble_carry,Sin cambios.,,False
+team_match_stats,team_match_obv_gk,float64,team_match_obv_gk,Sin cambios.,,False
+team_match_stats,team_match_obv_conceded,float64,team_match_obv_conceded,Sin cambios.,,False
+team_match_stats,team_match_obv_pass_conceded,float64,team_match_obv_pass_conceded,Sin cambios.,,False
+team_match_stats,team_match_obv_shot_nconceded,float64,team_match_obv_shot_nconceded,Sin cambios.,,False
+team_match_stats,team_match_obv_defensive_action_conceded,float64,team_match_obv_defensive_action_conceded,Sin cambios.,,False
+team_match_stats,team_match_obv_dribble_carry_conceded,float64,team_match_obv_dribble_carry_conceded,Sin cambios.,,False
+team_match_stats,team_match_obv_gk_conceded,float64,team_match_obv_gk_conceded,Sin cambios.,,False
+team_match_stats,team_match_passes,Int64,team_match_passes,Sin cambios.,,False
+team_match_stats,team_match_successful_passes,Int64,team_match_successful_passes,Sin cambios.,,False
+team_match_stats,team_match_passes_conceded,Int64,team_match_passes_conceded,Sin cambios.,,False
+team_match_stats,team_match_successful_passes_conceded,Int64,team_match_successful_passes_conceded,Sin cambios.,,False
+team_match_stats,team_match_op_passes,Int64,team_match_op_passes,Sin cambios.,,False
+team_match_stats,team_match_op_passes_conceded,Int64,team_match_op_passes_conceded,Sin cambios.,,False
+team_match_stats,team_match_indirect_free_kicks,Int64,team_match_indirect_free_kicks,Sin cambios.,,False
+team_match_stats,team_match_indirect_free_kick_xg,float64,team_match_indirect_free_kick_xg,Sin cambios.,,False
+team_match_stats,team_match_xg_per_indirect_free_kick,float64,team_match_xg_per_indirect_free_kick,Sin cambios.,,False
+team_match_stats,team_match_shots_from_indirect_free_kicks,Int64,team_match_shots_from_indirect_free_kicks,Sin cambios.,,False
+team_match_stats,team_match_goals_from_indirect_free_kicks,Int64,team_match_goals_from_indirect_free_kicks,Sin cambios.,,False
+team_match_stats,team_match_shots_from_indirect_free_kicks_conceded,Int64,team_match_shots_from_indirect_free_kicks_conceded,Sin cambios.,,False
+team_match_stats,team_match_goals_from_indirect_free_kicks_conceded,Int64,team_match_goals_from_indirect_free_kicks_conceded,Sin cambios.,,False
+team_match_stats,team_match_indirect_free_kicks_conceded,Int64,team_match_indirect_free_kicks_conceded,Sin cambios.,,False
+team_match_stats,team_match_indirect_free_kick_xg_conceded,float64,team_match_indirect_free_kick_xg_conceded,Sin cambios.,,False
+team_match_stats,team_match_indirect_free_kick_shot_ratio,float64,team_match_indirect_free_kick_shot_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_indirect_free_kick_goal_ratio,float64,team_match_indirect_free_kick_goal_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_xg_per_indirect_free_kick_conceded,float64,team_match_xg_per_indirect_free_kick_conceded,Sin cambios.,,False
+team_match_stats,team_match_indirect_free_kick_shot_ratio_conceded,float64,team_match_indirect_free_kick_shot_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_indirect_free_kick_goal_ratio_conceded,float64,team_match_indirect_free_kick_goal_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_aerial_duel_difficulty,float64,team_match_aerial_duel_difficulty,Sin cambios.,,False
+team_match_stats,team_match_aerial_team_rating,float64,team_match_aerial_team_rating,Sin cambios.,,False
+team_match_stats,team_match_aerial_unit_rating,float64,team_match_aerial_unit_rating,Sin cambios.,,False
+team_match_stats,team_match_transition_possession_rate,float64,team_match_transition_possession_rate,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_time_in_transition,float64,team_match_time_in_transition,Sin cambios.,,False
+team_match_stats,team_match_time_in_control,float64,team_match_time_in_control,Sin cambios.,,False
+team_match_stats,team_match_transition_xg,float64,team_match_transition_xg,Sin cambios.,,False
+team_match_stats,team_match_transition_xg_conceded,float64,team_match_transition_xg_conceded,Sin cambios.,,False
+team_match_stats,team_match_transition_obv,float64,team_match_transition_obv,Sin cambios.,,False
+team_match_stats,team_match_transition_obv_conceded,float64,team_match_transition_obv_conceded,Sin cambios.,,False
+team_match_stats,team_match_avg_team_possession_directness,float64,team_match_avg_team_possession_directness,Sin cambios. No es una proporción: rango observado de 0.36 a 0.68.,,False
+team_match_stats,team_match_avg_team_possession_directness_in_control,float64,team_match_avg_team_possession_directness_in_control,Sin cambios. No es una proporción: rango observado de 0.33 a 0.71.,,False
+team_match_stats,team_match_avg_team_possession_directness_in_transition,float64,team_match_avg_team_possession_directness_in_transition,Sin cambios. No es una proporción: rango observado de 0.34 a 0.97.,,False
+team_match_stats,team_match_sp_shot_distance_conceded,float64,team_match_sp_shot_distance_conceded,Sin cambios.,,False
+team_match_stats,team_match_xg_per_direct_free_kick_conceded,float64,team_match_xg_per_direct_free_kick_conceded,Sin cambios.,,False
+team_match_stats,team_match_direct_free_kick_goal_ratio_conceded,float64,team_match_direct_free_kick_goal_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats,team_match_direct_free_kick_shot_ratio_conceded,float64,team_match_direct_free_kick_shot_ratio_conceded,Sin cambios. Razón que puede pasar de 1 (máximo observado 2).,,False
+player_match_stats,match_id,Int64,match_id,Int64.,,False
+player_match_stats,team_id,Int64,team_id,Int64.,,False
+player_match_stats,team_name,category,team_name,strip.,,False
+player_match_stats,player_id,Int64,player_id,Int64.,,False
+player_match_stats,player_name,string,player_name,strip.,,False
+player_match_stats,player_match_minutes,float64,player_match_minutes,Sin cambios.,,False
+player_match_stats,player_match_np_xg_per_shot,float64,player_match_np_xg_per_shot,Sin cambios.,,False
+player_match_stats,player_match_np_xg,float64,player_match_np_xg,Sin cambios.,,False
+player_match_stats,player_match_np_shots,Int64,player_match_np_shots,Sin cambios.,,False
+player_match_stats,player_match_goals,Int64,player_match_goals,Sin cambios.,,False
+player_match_stats,player_match_np_goals,Int64,player_match_np_goals,Sin cambios.,,False
+player_match_stats,player_match_xa,float64,player_match_xa,Sin cambios.,,False
+player_match_stats,player_match_key_passes,Int64,player_match_key_passes,Sin cambios.,,False
+player_match_stats,player_match_op_key_passes,Int64,player_match_op_key_passes,Sin cambios.,,False
+player_match_stats,player_match_assists,Int64,player_match_assists,Sin cambios.,,False
+player_match_stats,player_match_through_balls,Int64,player_match_through_balls,Sin cambios.,,False
+player_match_stats,player_match_passes_into_box,Int64,player_match_passes_into_box,Sin cambios.,,False
+player_match_stats,player_match_op_passes_into_box,Int64,player_match_op_passes_into_box,Sin cambios.,,False
+player_match_stats,player_match_touches_inside_box,Int64,player_match_touches_inside_box,Sin cambios.,,False
+player_match_stats,player_match_tackles,Int64,player_match_tackles,Sin cambios.,,False
+player_match_stats,player_match_interceptions,Int64,player_match_interceptions,Sin cambios.,,False
+player_match_stats,player_match_possession,float64,player_match_possession,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+player_match_stats,player_match_dribbled_past,Int64,player_match_dribbled_past,Sin cambios.,,False
+player_match_stats,player_match_dribbles_faced,Int64,player_match_dribbles_faced,Sin cambios.,,False
+player_match_stats,player_match_dribbles,Int64,player_match_dribbles,Sin cambios.,,False
+player_match_stats,player_match_challenge_ratio,float64,player_match_challenge_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+player_match_stats,player_match_fouls,Int64,player_match_fouls,Sin cambios.,,False
+player_match_stats,player_match_dispossessions,Int64,player_match_dispossessions,Sin cambios.,,False
+player_match_stats,player_match_long_balls,Int64,player_match_long_balls,Sin cambios.,,False
+player_match_stats,player_match_successful_long_balls,Int64,player_match_successful_long_balls,Sin cambios.,,False
+player_match_stats,player_match_long_ball_ratio,float64,player_match_long_ball_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+player_match_stats,player_match_shots_blocked,Int64,player_match_shots_blocked,Sin cambios.,,False
+player_match_stats,player_match_clearances,Int64,player_match_clearances,Sin cambios.,,False
+player_match_stats,player_match_aerials,Int64,player_match_aerials,Sin cambios.,,False
+player_match_stats,player_match_successful_aerials,Int64,player_match_successful_aerials,Sin cambios.,,False
+player_match_stats,player_match_passes,Int64,player_match_passes,Sin cambios.,,False
+player_match_stats,player_match_successful_passes,Int64,player_match_successful_passes,Sin cambios.,,False
+player_match_stats,player_match_passing_ratio,float64,player_match_passing_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+player_match_stats,player_match_op_passes,Int64,player_match_op_passes,Sin cambios.,,False
+player_match_stats,player_match_forward_passes,Int64,player_match_forward_passes,Sin cambios.,,False
+player_match_stats,player_match_backward_passes,Int64,player_match_backward_passes,Sin cambios.,,False
+player_match_stats,player_match_sideways_passes,Int64,player_match_sideways_passes,Sin cambios.,,False
+player_match_stats,player_match_op_f3_passes,Int64,player_match_op_f3_passes,Sin cambios.,,False
+player_match_stats,player_match_op_f3_forward_passes,Int64,player_match_op_f3_forward_passes,Sin cambios.,,False
+player_match_stats,player_match_op_f3_backward_passes,Int64,player_match_op_f3_backward_passes,Sin cambios.,,False
+player_match_stats,player_match_op_f3_sideways_passes,Int64,player_match_op_f3_sideways_passes,Sin cambios.,,False
+player_match_stats,player_match_np_shots_on_target,Int64,player_match_np_shots_on_target,Sin cambios.,,False
+player_match_stats,player_match_crosses,Int64,player_match_crosses,Sin cambios.,,False
+player_match_stats,player_match_successful_crosses,Int64,player_match_successful_crosses,Sin cambios.,,False
+player_match_stats,player_match_crossing_ratio,float64,player_match_crossing_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+player_match_stats,player_match_penalties_won,Int64,player_match_penalties_won,Sin cambios.,,False
+player_match_stats,player_match_passes_inside_box,Int64,player_match_passes_inside_box,Sin cambios.,,False
+player_match_stats,player_match_op_xa,float64,player_match_op_xa,Sin cambios.,,False
+player_match_stats,player_match_op_assists,Int64,player_match_op_assists,Sin cambios.,,False
+player_match_stats,player_match_pressured_long_balls,Int64,player_match_pressured_long_balls,Sin cambios.,,False
+player_match_stats,player_match_unpressured_long_balls,Int64,player_match_unpressured_long_balls,Sin cambios.,,False
+player_match_stats,player_match_aggressive_actions,Int64,player_match_aggressive_actions,Sin cambios.,,False
+player_match_stats,player_match_turnovers,Int64,player_match_turnovers,Sin cambios.,,False
+player_match_stats,player_match_crosses_into_box,Int64,player_match_crosses_into_box,Sin cambios.,,False
+player_match_stats,player_match_sp_xa,float64,player_match_sp_xa,Sin cambios.,,False
+player_match_stats,player_match_op_shots,Int64,player_match_op_shots,Sin cambios.,,False
+player_match_stats,player_match_touches,Int64,player_match_touches,Sin cambios.,,False
+player_match_stats,player_match_pressure_regains,Int64,player_match_pressure_regains,Sin cambios.,,False
+player_match_stats,player_match_box_cross_ratio,float64,player_match_box_cross_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+player_match_stats,player_match_deep_progressions,Int64,player_match_deep_progressions,Sin cambios.,,False
+player_match_stats,player_match_shot_touch_ratio,float64,player_match_shot_touch_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+player_match_stats,player_match_fouls_won,Int64,player_match_fouls_won,Sin cambios.,,False
+player_match_stats,player_match_xgchain,float64,player_match_xgchain,Sin cambios.,,False
+player_match_stats,player_match_op_xgchain,float64,player_match_op_xgchain,Sin cambios.,,False
+player_match_stats,player_match_xgbuildup,float64,player_match_xgbuildup,Sin cambios.,,False
+player_match_stats,player_match_op_xgbuildup,float64,player_match_op_xgbuildup,Sin cambios.,,False
+player_match_stats,player_match_xgchain_per_possession,float64,player_match_xgchain_per_possession,Sin cambios.,,False
+player_match_stats,player_match_op_xgchain_per_possession,float64,player_match_op_xgchain_per_possession,Sin cambios.,,False
+player_match_stats,player_match_xgbuildup_per_possession,float64,player_match_xgbuildup_per_possession,Sin cambios.,,False
+player_match_stats,player_match_op_xgbuildup_per_possession,float64,player_match_op_xgbuildup_per_possession,Sin cambios.,,False
+player_match_stats,player_match_pressures,float64,player_match_pressures,Sin cambios.,,False
+player_match_stats,player_match_pressure_duration_total,float64,player_match_pressure_duration_total,Sin cambios.,,False
+player_match_stats,player_match_pressure_duration_avg,float64,player_match_pressure_duration_avg,Sin cambios.,,False
+player_match_stats,player_match_pressured_action_fails,float64,player_match_pressured_action_fails,Sin cambios.,,False
+player_match_stats,player_match_counterpressures,float64,player_match_counterpressures,Sin cambios.,,False
+player_match_stats,player_match_counterpressured_action_fails,float64,player_match_counterpressured_action_fails,Sin cambios.,,False
+player_match_stats,player_match_obv,float64,player_match_obv,Sin cambios.,,False
+player_match_stats,player_match_obv_pass,float64,player_match_obv_pass,Sin cambios.,,False
+player_match_stats,player_match_obv_shot,float64,player_match_obv_shot,Sin cambios.,,False
+player_match_stats,player_match_obv_defensive_action,float64,player_match_obv_defensive_action,Sin cambios.,,False
+player_match_stats,player_match_obv_dribble_carry,float64,player_match_obv_dribble_carry,Sin cambios.,,False
+player_match_stats,player_match_deep_completions,Int64,player_match_deep_completions,Sin cambios.,,False
+player_match_stats,player_match_ball_recoveries,Int64,player_match_ball_recoveries,Sin cambios.,,False
+player_match_stats,player_match_np_psxg,float64,player_match_np_psxg,Sin cambios.,,False
+player_match_stats,player_match_penalties_faced,Int64,player_match_penalties_faced,Sin cambios.,,False
+player_match_stats,player_match_penalties_conceded,Int64,player_match_penalties_conceded,Sin cambios.,,False
+player_match_stats,player_match_fhalf_ball_recoveries,Int64,player_match_fhalf_ball_recoveries,Sin cambios.,,False
+player_match_stats,player_match_average_space_received_in,float64,player_match_average_space_received_in,Sin cambios.,,False
+player_match_stats,player_match_average_fhalf_space_received_in,float64,player_match_average_fhalf_space_received_in,Sin cambios.,,False
+player_match_stats,player_match_average_f3_space_received_in,float64,player_match_average_f3_space_received_in,Sin cambios.,,False
+player_match_stats,player_match_ball_receipts_in_space_10,Int64,player_match_ball_receipts_in_space_10,Sin cambios.,,False
+player_match_stats,player_match_ball_receipts_in_space_2,Int64,player_match_ball_receipts_in_space_2,Sin cambios.,,False
+player_match_stats,player_match_ball_receipts_in_space_5,Int64,player_match_ball_receipts_in_space_5,Sin cambios.,,False
+player_match_stats,player_match_fhalf_ball_receipts_in_space_10,Int64,player_match_fhalf_ball_receipts_in_space_10,Sin cambios.,,False
+player_match_stats,player_match_fhalf_ball_receipts_in_space_2,Int64,player_match_fhalf_ball_receipts_in_space_2,Sin cambios.,,False
+player_match_stats,player_match_fhalf_ball_receipts_in_space_5,Int64,player_match_fhalf_ball_receipts_in_space_5,Sin cambios.,,False
+player_match_stats,player_match_f3_ball_receipts_in_space_10,Int64,player_match_f3_ball_receipts_in_space_10,Sin cambios.,,False
+player_match_stats,player_match_f3_ball_receipts_in_space_2,Int64,player_match_f3_ball_receipts_in_space_2,Sin cambios.,,False
+player_match_stats,player_match_f3_ball_receipts_in_space_5,Int64,player_match_f3_ball_receipts_in_space_5,Sin cambios.,,False
+player_match_stats,player_match_lbp,Int64,player_match_lbp,Sin cambios.,,False
+player_match_stats,player_match_lbp_completed,Int64,player_match_lbp_completed,Sin cambios.,,False
+player_match_stats,player_match_fhalf_lbp_completed,Int64,player_match_fhalf_lbp_completed,Sin cambios.,,False
+player_match_stats,player_match_f3_lbp_completed,Int64,player_match_f3_lbp_completed,Sin cambios.,,False
+player_match_stats,player_match_fhalf_lbp,Int64,player_match_fhalf_lbp,Sin cambios.,,False
+player_match_stats,player_match_f3_lbp,Int64,player_match_f3_lbp,Sin cambios.,,False
+player_match_stats,player_match_obv_lbp,float64,player_match_obv_lbp,Sin cambios.,,False
+player_match_stats,player_match_fhalf_obv_lbp,float64,player_match_fhalf_obv_lbp,Sin cambios.,,False
+player_match_stats,player_match_f3_obv_lbp,float64,player_match_f3_obv_lbp,Sin cambios.,,False
+player_match_stats,player_match_lbp_received,Int64,player_match_lbp_received,Sin cambios.,,False
+player_match_stats,player_match_fhalf_lbp_received,Int64,player_match_fhalf_lbp_received,Sin cambios.,,False
+player_match_stats,player_match_f3_lbp_received,Int64,player_match_f3_lbp_received,Sin cambios.,,False
+player_match_stats,player_match_average_lbp_to_space_distance,float64,player_match_average_lbp_to_space_distance,Sin cambios.,,False
+player_match_stats,player_match_lbp_to_space_10_received,Int64,player_match_lbp_to_space_10_received,Sin cambios.,,False
+player_match_stats,player_match_fhalf_lbp_to_space_10_received,Int64,player_match_fhalf_lbp_to_space_10_received,Sin cambios.,,False
+player_match_stats,player_match_f3_lbp_to_space_10_received,Int64,player_match_f3_lbp_to_space_10_received,Sin cambios.,,False
+player_match_stats,player_match_lbp_to_space_2_received,Int64,player_match_lbp_to_space_2_received,Sin cambios.,,False
+player_match_stats,player_match_fhalf_lbp_to_space_2_received,Int64,player_match_fhalf_lbp_to_space_2_received,Sin cambios.,,False
+player_match_stats,player_match_f3_lbp_to_space_2_received,Int64,player_match_f3_lbp_to_space_2_received,Sin cambios.,,False
+player_match_stats,player_match_lbp_to_space_5_received,Int64,player_match_lbp_to_space_5_received,Sin cambios.,,False
+player_match_stats,player_match_fhalf_lbp_to_space_5_received,Int64,player_match_fhalf_lbp_to_space_5_received,Sin cambios.,,False
+player_match_stats,player_match_f3_lbp_to_space_5_received,Int64,player_match_f3_lbp_to_space_5_received,Sin cambios.,,False
+player_match_stats,player_match_average_lbp_to_space_received_distance,float64,player_match_average_lbp_to_space_received_distance,Sin cambios.,,False
+player_match_stats,player_match_fhalf_average_lbp_to_space_received_distance,float64,player_match_fhalf_average_lbp_to_space_received_distance,Sin cambios.,,False
+player_match_stats,player_match_lbp_to_space_10,Int64,player_match_lbp_to_space_10,Sin cambios.,,False
+player_match_stats,player_match_fhalf_lbp_to_space_10,Int64,player_match_fhalf_lbp_to_space_10,Sin cambios.,,False
+player_match_stats,player_match_f3_lbp_to_space_10,Int64,player_match_f3_lbp_to_space_10,Sin cambios.,,False
+player_match_stats,player_match_lbp_to_space_2,Int64,player_match_lbp_to_space_2,Sin cambios.,,False
+player_match_stats,player_match_fhalf_lbp_to_space_2,Int64,player_match_fhalf_lbp_to_space_2,Sin cambios.,,False
+player_match_stats,player_match_f3_lbp_to_space_2,Int64,player_match_f3_lbp_to_space_2,Sin cambios.,,False
+player_match_stats,player_match_lbp_to_space_5,Int64,player_match_lbp_to_space_5,Sin cambios.,,False
+player_match_stats,player_match_fhalf_lbp_to_space_5,Int64,player_match_fhalf_lbp_to_space_5,Sin cambios.,,False
+player_match_stats,player_match_f3_lbp_to_space_5,Int64,player_match_f3_lbp_to_space_5,Sin cambios.,,False
+player_match_stats,player_match_passes_360,Int64,player_match_passes_360,Sin cambios.,,False
+player_match_stats,player_match_obv_passes_360,float64,player_match_obv_passes_360,Sin cambios.,,False
+player_match_stats,player_match_fhalf_passes_360,Int64,player_match_fhalf_passes_360,Sin cambios.,,False
+player_match_stats,player_match_fhalf_obv_passes_360,float64,player_match_fhalf_obv_passes_360,Sin cambios.,,False
+player_match_stats,player_match_f3_passes_360,Int64,player_match_f3_passes_360,Sin cambios.,,False
+player_match_stats,player_match_f3_obv_passes_360,float64,player_match_f3_obv_passes_360,Sin cambios.,,False
+player_match_stats,player_match_ball_receipts_360,Int64,player_match_ball_receipts_360,Sin cambios.,,False
+player_match_stats,player_match_fhalf_ball_receipts_360,Int64,player_match_fhalf_ball_receipts_360,Sin cambios.,,False
+player_match_stats,player_match_f3_ball_receipts_360,Int64,player_match_f3_ball_receipts_360,Sin cambios.,,False
+player_match_stats,player_match_360_minutes,float64,player_match_360_minutes,Sin cambios.,,False
+player_match_stats,player_match_defensive_actions,Int64,player_match_defensive_actions,Sin cambios.,,False
+player_match_stats,player_match_ccaa,float64,player_match_ccaa,Sin cambios.,,False
+player_match_stats,player_match_da_aggressive_distance,float64,player_match_da_aggressive_distance,Sin cambios.,,False
+player_match_stats,player_match_goals_conceded,Int64,player_match_goals_conceded,Sin cambios.,,False
+player_match_stats,player_match_gsaa,float64,player_match_gsaa,Sin cambios.,,False
+player_match_stats,player_match_positive_outcome_score,float64,player_match_positive_outcome_score,Sin cambios.,,False
+player_match_stats,player_match_npot_psxg_faced,float64,player_match_npot_psxg_faced,Sin cambios.,,False
+player_match_stats,player_match_save_ratio,float64,player_match_save_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+player_match_stats,player_match_npot_shots_faced,Int64,player_match_npot_shots_faced,Sin cambios.,,False
+player_match_stats,player_match_defensive_responsibility_actions,Int64,player_match_defensive_responsibility_actions,Sin cambios.,,False
+player_match_stats,player_match_expected_defensive_actions,float64,player_match_expected_defensive_actions,Sin cambios.,,False
+player_match_stats,player_match_defensive_actions_above_expectation,float64,player_match_defensive_actions_above_expectation,Sin cambios.,,False
+player_match_stats,player_match_obv_conceded_responsibility_weighted,float64,player_match_obv_conceded_responsibility_weighted,Sin cambios.,,False
+player_match_stats,player_match_predicted_headers,float64,player_match_predicted_headers,Sin cambios.,,False
+player_match_stats,player_match_transition_possession_rate,float64,player_match_transition_possession_rate,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+player_match_stats,player_match_transition_xg,float64,player_match_transition_xg,Sin cambios.,,False
+player_match_stats,player_match_transition_obv,float64,player_match_transition_obv,Sin cambios.,,False
+player_match_stats,player_match_avg_player_possession_directness,float64,player_match_avg_player_possession_directness,Sin cambios. No es una proporción: rango observado de -0.81 a 1.64.,,False
+player_match_stats,player_match_avg_player_possession_directness_in_control,float64,player_match_avg_player_possession_directness_in_control,Sin cambios. No es una proporción: rango observado de -0.71 a 1.79.,,False
+player_match_stats,player_match_avg_player_possession_directness_in_transition,float64,player_match_avg_player_possession_directness_in_transition,Sin cambios. No es una proporción: rango observado de -1.07 a 3.70.,,False
+player_match_stats,player_match_counterpressure_duration_total,float64,player_match_counterpressure_duration_total,Sin cambios.,,False
+player_match_stats,player_match_counterpressure_duration_avg,float64,player_match_counterpressure_duration_avg,Sin cambios.,,False
+player_match_stats,player_match_f3_average_lbp_to_space_received_distance,float64,player_match_f3_average_lbp_to_space_received_distance,Sin cambios.,,False
+player_match_stats,player_match_aerial_ratio,float64,player_match_aerial_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+player_match_stats,player_match_fhalf_average_lbp_to_space_distance,float64,player_match_fhalf_average_lbp_to_space_distance,Sin cambios.,,False
+player_match_stats,player_match_f3_average_lbp_to_space_distance,float64,player_match_f3_average_lbp_to_space_distance,Sin cambios.,,False
+player_match_stats,player_match_obv_gk,float64,player_match_obv_gk,Sin cambios.,,False
+player_match_stats,player_match_claim_success,float64,player_match_claim_success,Sin cambios.,,False
+player_match_stats,player_match_gk_positioning_error,float64,player_match_gk_positioning_error,Sin cambios.,,False
+player_match_stats,player_match_gsaa_ratio,float64,player_match_gsaa_ratio,Sin cambios. No es una escala 0 a 1: rango observado de -0.88 a 0.48.,,False
+team_match_stats_liga,match_id,Int64,match_id,Int64.,,False
+team_match_stats_liga,team_id,Int64,team_id,Int64.,,False
+team_match_stats_liga,team_name,category,team_name,strip.,,False
+team_match_stats_liga,opposition_id,Int64,opposition_id,Int64.,,False
+team_match_stats_liga,opposition_name,category,opposition_name,strip.,,False
+team_match_stats_liga,competition_id,Int64,competition_id,Int64.,,False
+team_match_stats_liga,competition_name,category,competition_name,strip.,,False
+team_match_stats_liga,season_id,Int64,season_id,Int64.,,False
+team_match_stats_liga,season_name,category,season_name,strip.,,False
+team_match_stats_liga,team_female,boolean,team_female,Sin cambios.,,False
+team_match_stats_liga,team_match_gd,Int64,team_match_gd,Sin cambios.,,False
+team_match_stats_liga,team_match_xgd,float64,team_match_xgd,Sin cambios.,,False
+team_match_stats_liga,team_match_np_shots,Int64,team_match_np_shots,Sin cambios.,,False
+team_match_stats_liga,team_match_op_shots,Int64,team_match_op_shots,Sin cambios.,,False
+team_match_stats_liga,team_match_op_shots_outside_box,Int64,team_match_op_shots_outside_box,Sin cambios.,,False
+team_match_stats_liga,team_match_sp_shots,Int64,team_match_sp_shots,Sin cambios.,,False
+team_match_stats_liga,team_match_np_xg,float64,team_match_np_xg,Sin cambios.,,False
+team_match_stats_liga,team_match_op_xg,float64,team_match_op_xg,Sin cambios.,,False
+team_match_stats_liga,team_match_sp_xg,float64,team_match_sp_xg,Sin cambios.,,False
+team_match_stats_liga,team_match_np_xg_per_shot,float64,team_match_np_xg_per_shot,Sin cambios.,,False
+team_match_stats_liga,team_match_np_shot_distance,float64,team_match_np_shot_distance,Sin cambios.,,False
+team_match_stats_liga,team_match_op_shot_distance,float64,team_match_op_shot_distance,Sin cambios.,,False
+team_match_stats_liga,team_match_sp_shot_distance,float64,team_match_sp_shot_distance,Sin cambios.,,False
+team_match_stats_liga,team_match_possessions,Int64,team_match_possessions,Sin cambios.,,False
+team_match_stats_liga,team_match_possession,float64,team_match_possession,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_directness,float64,team_match_directness,Sin cambios. No es una proporción: rango observado de -0.08 a 1.00.,,False
+team_match_stats_liga,team_match_pace_towards_goal,float64,team_match_pace_towards_goal,Sin cambios.,,False
+team_match_stats_liga,team_match_gk_pass_distance,float64,team_match_gk_pass_distance,Sin cambios.,,False
+team_match_stats_liga,team_match_gk_long_pass_ratio,float64,team_match_gk_long_pass_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_box_cross_ratio,float64,team_match_box_cross_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_passes_inside_box,Int64,team_match_passes_inside_box,Sin cambios.,,False
+team_match_stats_liga,team_match_defensive_distance,float64,team_match_defensive_distance,Sin cambios.,,False
+team_match_stats_liga,team_match_ppda,float64,team_match_ppda,Sin cambios.,,False
+team_match_stats_liga,team_match_defensive_distance_ppda,float64,team_match_defensive_distance_ppda,Sin cambios.,,False
+team_match_stats_liga,team_match_opp_passing_ratio,float64,team_match_opp_passing_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_opp_final_third_pass_ratio,float64,team_match_opp_final_third_pass_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_np_shots_conceded,Int64,team_match_np_shots_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_op_shots_conceded,Int64,team_match_op_shots_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_op_shots_conceded_outside_box,Int64,team_match_op_shots_conceded_outside_box,Sin cambios.,,False
+team_match_stats_liga,team_match_sp_shots_conceded,Int64,team_match_sp_shots_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_np_xg_conceded,float64,team_match_np_xg_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_op_xg_conceded,float64,team_match_op_xg_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_sp_xg_conceded,float64,team_match_sp_xg_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_np_xg_per_shot_conceded,float64,team_match_np_xg_per_shot_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_np_shot_distance_conceded,float64,team_match_np_shot_distance_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_op_shot_distance_conceded,float64,team_match_op_shot_distance_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_sp_shot_distance_conceded,float64,team_match_sp_shot_distance_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_deep_completions_conceded,Int64,team_match_deep_completions_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_passes_inside_box_conceded,Int64,team_match_passes_inside_box_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_corners,Int64,team_match_corners,Sin cambios.,,False
+team_match_stats_liga,team_match_corner_xg,float64,team_match_corner_xg,Sin cambios.,,False
+team_match_stats_liga,team_match_xg_per_corner,float64,team_match_xg_per_corner,Sin cambios.,,False
+team_match_stats_liga,team_match_free_kicks,Int64,team_match_free_kicks,Sin cambios.,,False
+team_match_stats_liga,team_match_free_kick_xg,float64,team_match_free_kick_xg,Sin cambios.,,False
+team_match_stats_liga,team_match_xg_per_free_kick,float64,team_match_xg_per_free_kick,Sin cambios.,,False
+team_match_stats_liga,team_match_direct_free_kicks,Int64,team_match_direct_free_kicks,Sin cambios.,,False
+team_match_stats_liga,team_match_direct_free_kick_xg,float64,team_match_direct_free_kick_xg,Sin cambios.,,False
+team_match_stats_liga,team_match_xg_per_direct_free_kick,float64,team_match_xg_per_direct_free_kick,Sin cambios.,,False
+team_match_stats_liga,team_match_throw_ins,Int64,team_match_throw_ins,Sin cambios.,,False
+team_match_stats_liga,team_match_throw_in_xg,float64,team_match_throw_in_xg,Sin cambios.,,False
+team_match_stats_liga,team_match_xg_per_throw_in,float64,team_match_xg_per_throw_in,Sin cambios.,,False
+team_match_stats_liga,team_match_ball_in_play_time,float64,team_match_ball_in_play_time,Sin cambios.,,False
+team_match_stats_liga,team_match_counter_attacking_shots,Int64,team_match_counter_attacking_shots,Sin cambios.,,False
+team_match_stats_liga,team_match_high_press_shots,Int64,team_match_high_press_shots,Sin cambios.,,False
+team_match_stats_liga,team_match_shots_in_clear,Int64,team_match_shots_in_clear,Sin cambios.,,False
+team_match_stats_liga,team_match_counter_attacking_shots_conceded,Int64,team_match_counter_attacking_shots_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_shots_in_clear_conceded,Int64,team_match_shots_in_clear_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_aggressive_actions,Int64,team_match_aggressive_actions,Sin cambios.,,False
+team_match_stats_liga,team_match_aggression,float64,team_match_aggression,Sin cambios.,,False
+team_match_stats_liga,team_match_goals,Int64,team_match_goals,Sin cambios.,,False
+team_match_stats_liga,team_match_own_goals,Int64,team_match_own_goals,Sin cambios.,,False
+team_match_stats_liga,team_match_penalty_goals,Int64,team_match_penalty_goals,Sin cambios.,,False
+team_match_stats_liga,team_match_goals_conceded,Int64,team_match_goals_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_opposition_own_goals,Int64,team_match_opposition_own_goals,Sin cambios.,,False
+team_match_stats_liga,team_match_penalty_goals_conceded,Int64,team_match_penalty_goals_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_shots_from_corners,Int64,team_match_shots_from_corners,Sin cambios.,,False
+team_match_stats_liga,team_match_goals_from_corners,Int64,team_match_goals_from_corners,Sin cambios.,,False
+team_match_stats_liga,team_match_shots_from_free_kicks,Int64,team_match_shots_from_free_kicks,Sin cambios.,,False
+team_match_stats_liga,team_match_goals_from_free_kicks,Int64,team_match_goals_from_free_kicks,Sin cambios.,,False
+team_match_stats_liga,team_match_direct_free_kick_goals,Int64,team_match_direct_free_kick_goals,Sin cambios.,,False
+team_match_stats_liga,team_match_shots_from_direct_free_kicks,Int64,team_match_shots_from_direct_free_kicks,Sin cambios.,,False
+team_match_stats_liga,team_match_shots_from_throw_ins,Int64,team_match_shots_from_throw_ins,Sin cambios.,,False
+team_match_stats_liga,team_match_goals_from_throw_ins,Int64,team_match_goals_from_throw_ins,Sin cambios.,,False
+team_match_stats_liga,team_match_direct_free_kick_goals_conceded,Int64,team_match_direct_free_kick_goals_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_shots_from_direct_free_kicks_conceded,Int64,team_match_shots_from_direct_free_kicks_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_corners_conceded,Int64,team_match_corners_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_corner_xg_conceded,float64,team_match_corner_xg_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_shots_from_corners_conceded,Int64,team_match_shots_from_corners_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_goals_from_corners_conceded,Int64,team_match_goals_from_corners_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_free_kicks_conceded,Int64,team_match_free_kicks_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_free_kick_xg_conceded,float64,team_match_free_kick_xg_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_shots_from_free_kicks_conceded,Int64,team_match_shots_from_free_kicks_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_goals_from_free_kicks_conceded,Int64,team_match_goals_from_free_kicks_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_direct_free_kicks_conceded,Int64,team_match_direct_free_kicks_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_direct_free_kick_xg_conceded,float64,team_match_direct_free_kick_xg_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_throw_ins_conceded,Int64,team_match_throw_ins_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_throw_in_xg_conceded,float64,team_match_throw_in_xg_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_shots_from_throw_ins_conceded,Int64,team_match_shots_from_throw_ins_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_goals_from_throw_ins_conceded,Int64,team_match_goals_from_throw_ins_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_corner_shot_ratio,float64,team_match_corner_shot_ratio,Sin cambios. Razón que puede pasar de 1 (máximo observado 2).,,False
+team_match_stats_liga,team_match_corner_goal_ratio,float64,team_match_corner_goal_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_free_kick_shot_ratio,float64,team_match_free_kick_shot_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_free_kick_goal_ratio,float64,team_match_free_kick_goal_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_direct_free_kick_goal_ratio,float64,team_match_direct_free_kick_goal_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_throw_in_shot_ratio,float64,team_match_throw_in_shot_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_throw_in_goal_ratio,float64,team_match_throw_in_goal_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_xg_per_corner_conceded,float64,team_match_xg_per_corner_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_corner_shot_ratio_conceded,float64,team_match_corner_shot_ratio_conceded,Sin cambios. Razón que puede pasar de 1 (máximo observado 2).,,False
+team_match_stats_liga,team_match_corner_goal_ratio_conceded,float64,team_match_corner_goal_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_xg_per_free_kick_conceded,float64,team_match_xg_per_free_kick_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_free_kick_shot_ratio_conceded,float64,team_match_free_kick_shot_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_free_kick_goal_ratio_conceded,float64,team_match_free_kick_goal_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_xg_per_direct_free_kick_conceded,float64,team_match_xg_per_direct_free_kick_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_direct_free_kick_goal_ratio_conceded,float64,team_match_direct_free_kick_goal_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_xg_per_throw_in_conceded,float64,team_match_xg_per_throw_in_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_throw_in_shot_ratio_conceded,float64,team_match_throw_in_shot_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_throw_in_goal_ratio_conceded,float64,team_match_throw_in_goal_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_direct_free_kick_shot_ratio,float64,team_match_direct_free_kick_shot_ratio,Sin cambios. Razón que puede pasar de 1 (máximo observado 3).,,False
+team_match_stats_liga,team_match_direct_free_kick_shot_ratio_conceded,float64,team_match_direct_free_kick_shot_ratio_conceded,Sin cambios. Razón que puede pasar de 1 (máximo observado 3).,,False
+team_match_stats_liga,team_match_sp,Int64,team_match_sp,Sin cambios.,,False
+team_match_stats_liga,team_match_xg_per_sp,float64,team_match_xg_per_sp,Sin cambios.,,False
+team_match_stats_liga,team_match_sp_shot_ratio,float64,team_match_sp_shot_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_sp_goals,Int64,team_match_sp_goals,Sin cambios.,,False
+team_match_stats_liga,team_match_sp_goal_ratio,float64,team_match_sp_goal_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_sp_conceded,Int64,team_match_sp_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_xg_per_sp_conceded,float64,team_match_xg_per_sp_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_sp_shot_ratio_conceded,float64,team_match_sp_shot_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_sp_goals_conceded,Int64,team_match_sp_goals_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_sp_goal_ratio_conceded,float64,team_match_sp_goal_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_penalties_won,Int64,team_match_penalties_won,Sin cambios.,,False
+team_match_stats_liga,team_match_penalties_conceded,Int64,team_match_penalties_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_completed_dribbles,Int64,team_match_completed_dribbles,Sin cambios.,,False
+team_match_stats_liga,team_match_failed_dribbles,Int64,team_match_failed_dribbles,Sin cambios.,,False
+team_match_stats_liga,team_match_total_dribbles,Int64,team_match_total_dribbles,Sin cambios.,,False
+team_match_stats_liga,team_match_dribble_ratio,float64,team_match_dribble_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_completed_dribbles_conceded,Int64,team_match_completed_dribbles_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_failed_dribbles_conceded,Int64,team_match_failed_dribbles_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_total_dribbles_conceded,Int64,team_match_total_dribbles_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_opposition_dribble_ratio,float64,team_match_opposition_dribble_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_high_press_shots_conceded,Int64,team_match_high_press_shots_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_np_gd,Int64,team_match_np_gd,Sin cambios.,,False
+team_match_stats_liga,team_match_np_xgd,float64,team_match_np_xgd,Sin cambios.,,False
+team_match_stats_liga,team_match_deep_completions,Int64,team_match_deep_completions,Sin cambios.,,False
+team_match_stats_liga,team_match_passing_ratio,float64,team_match_passing_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_pressures,Int64,team_match_pressures,Sin cambios.,,False
+team_match_stats_liga,team_match_counterpressures,Int64,team_match_counterpressures,Sin cambios.,,False
+team_match_stats_liga,team_match_pressure_regains,Int64,team_match_pressure_regains,Sin cambios.,,False
+team_match_stats_liga,team_match_counterpressure_regains,Int64,team_match_counterpressure_regains,Sin cambios.,,False
+team_match_stats_liga,team_match_defensive_action_regains,Int64,team_match_defensive_action_regains,Sin cambios.,,False
+team_match_stats_liga,team_match_yellow_cards,Int64,team_match_yellow_cards,Sin cambios.,,False
+team_match_stats_liga,team_match_second_yellow_cards,Int64,team_match_second_yellow_cards,Sin cambios.,,False
+team_match_stats_liga,team_match_red_cards,Int64,team_match_red_cards,Sin cambios.,,False
+team_match_stats_liga,team_match_fhalf_pressures,Int64,team_match_fhalf_pressures,Sin cambios.,,False
+team_match_stats_liga,team_match_fhalf_counterpressures,Int64,team_match_fhalf_counterpressures,Sin cambios.,,False
+team_match_stats_liga,team_match_fhalf_pressures_ratio,float64,team_match_fhalf_pressures_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_fhalf_counterpressures_ratio,float64,team_match_fhalf_counterpressures_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_crosses_into_box,Int64,team_match_crosses_into_box,Sin cambios.,,False
+team_match_stats_liga,team_match_successful_crosses_into_box,Int64,team_match_successful_crosses_into_box,Sin cambios.,,False
+team_match_stats_liga,team_match_successful_box_cross_ratio,float64,team_match_successful_box_cross_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_deep_progressions,Int64,team_match_deep_progressions,Sin cambios.,,False
+team_match_stats_liga,team_match_deep_progressions_conceded,Int64,team_match_deep_progressions_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_obv,float64,team_match_obv,Sin cambios.,,False
+team_match_stats_liga,team_match_obv_pass,float64,team_match_obv_pass,Sin cambios.,,False
+team_match_stats_liga,team_match_obv_shot,float64,team_match_obv_shot,Sin cambios.,,False
+team_match_stats_liga,team_match_obv_defensive_action,float64,team_match_obv_defensive_action,Sin cambios.,,False
+team_match_stats_liga,team_match_obv_dribble_carry,float64,team_match_obv_dribble_carry,Sin cambios.,,False
+team_match_stats_liga,team_match_obv_gk,float64,team_match_obv_gk,Sin cambios.,,False
+team_match_stats_liga,team_match_obv_conceded,float64,team_match_obv_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_obv_pass_conceded,float64,team_match_obv_pass_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_obv_shot_nconceded,float64,team_match_obv_shot_nconceded,Sin cambios.,,False
+team_match_stats_liga,team_match_obv_defensive_action_conceded,float64,team_match_obv_defensive_action_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_obv_dribble_carry_conceded,float64,team_match_obv_dribble_carry_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_obv_gk_conceded,float64,team_match_obv_gk_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_passes,Int64,team_match_passes,Sin cambios.,,False
+team_match_stats_liga,team_match_successful_passes,Int64,team_match_successful_passes,Sin cambios.,,False
+team_match_stats_liga,team_match_passes_conceded,Int64,team_match_passes_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_successful_passes_conceded,Int64,team_match_successful_passes_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_op_passes,Int64,team_match_op_passes,Sin cambios.,,False
+team_match_stats_liga,team_match_op_passes_conceded,Int64,team_match_op_passes_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_indirect_free_kicks,Int64,team_match_indirect_free_kicks,Sin cambios.,,False
+team_match_stats_liga,team_match_indirect_free_kick_xg,float64,team_match_indirect_free_kick_xg,Sin cambios.,,False
+team_match_stats_liga,team_match_xg_per_indirect_free_kick,float64,team_match_xg_per_indirect_free_kick,Sin cambios.,,False
+team_match_stats_liga,team_match_shots_from_indirect_free_kicks,Int64,team_match_shots_from_indirect_free_kicks,Sin cambios.,,False
+team_match_stats_liga,team_match_goals_from_indirect_free_kicks,Int64,team_match_goals_from_indirect_free_kicks,Sin cambios.,,False
+team_match_stats_liga,team_match_shots_from_indirect_free_kicks_conceded,Int64,team_match_shots_from_indirect_free_kicks_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_goals_from_indirect_free_kicks_conceded,Int64,team_match_goals_from_indirect_free_kicks_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_indirect_free_kicks_conceded,Int64,team_match_indirect_free_kicks_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_indirect_free_kick_xg_conceded,float64,team_match_indirect_free_kick_xg_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_indirect_free_kick_shot_ratio,float64,team_match_indirect_free_kick_shot_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_indirect_free_kick_goal_ratio,float64,team_match_indirect_free_kick_goal_ratio,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_xg_per_indirect_free_kick_conceded,float64,team_match_xg_per_indirect_free_kick_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_indirect_free_kick_shot_ratio_conceded,float64,team_match_indirect_free_kick_shot_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_indirect_free_kick_goal_ratio_conceded,float64,team_match_indirect_free_kick_goal_ratio_conceded,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_aerial_duel_difficulty,float64,team_match_aerial_duel_difficulty,Sin cambios.,,False
+team_match_stats_liga,team_match_aerial_team_rating,float64,team_match_aerial_team_rating,Sin cambios.,,False
+team_match_stats_liga,team_match_aerial_unit_rating,float64,team_match_aerial_unit_rating,Sin cambios.,,False
+team_match_stats_liga,team_match_transition_possession_rate,float64,team_match_transition_possession_rate,"Sin cambios. Proporción; rango observado dentro de [0, 1] (observación de estos datos, no una garantía de StatsBomb).",,False
+team_match_stats_liga,team_match_time_in_transition,float64,team_match_time_in_transition,Sin cambios.,,False
+team_match_stats_liga,team_match_time_in_control,float64,team_match_time_in_control,Sin cambios.,,False
+team_match_stats_liga,team_match_transition_xg,float64,team_match_transition_xg,Sin cambios.,,False
+team_match_stats_liga,team_match_transition_xg_conceded,float64,team_match_transition_xg_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_transition_obv,float64,team_match_transition_obv,Sin cambios.,,False
+team_match_stats_liga,team_match_transition_obv_conceded,float64,team_match_transition_obv_conceded,Sin cambios.,,False
+team_match_stats_liga,team_match_avg_team_possession_directness,float64,team_match_avg_team_possession_directness,Sin cambios. No es una proporción: rango observado de 0.36 a 0.80.,,False
+team_match_stats_liga,team_match_avg_team_possession_directness_in_control,float64,team_match_avg_team_possession_directness_in_control,Sin cambios. No es una proporción: rango observado de 0.33 a 0.76.,,False
+team_match_stats_liga,team_match_avg_team_possession_directness_in_transition,float64,team_match_avg_team_possession_directness_in_transition,Sin cambios. No es una proporción: rango observado de 0.26 a 0.97.,,False
+team_match_stats_liga,torneo,category,team_match_stats_liga.parquet,"Derivada de match_date: julio a diciembre = Apertura, enero a junio = Clausura.",,False
+team_match_stats_liga,fase,category,team_match_stats_liga.parquet,"regular si competition_stage.id en {1, 42, 44}; liguilla en otro caso.",,False
+team_match_stats_liga,es_play_in,boolean,team_match_stats_liga.parquet,competition_stage.id = 2.,,False
+team_match_stats_liga,es_final,boolean,team_match_stats_liga.parquet,Dos últimos partidos de eliminación directa del torneo entre el mismo par de equipos (calculado sobre toda la liga).,,False
+team_match_stats_liga,match_date,datetime64[us],team_match_stats_liga.parquet,Texto -> fecha.,,False
+team_match_stats_liga,match_week,Int64,team_match_stats_liga.parquet,Int64.,,False
+related_events,match_id,Int64,match_id,Llave.,,False
+related_events,index,Int64,index del evento,Llave junto con match_id.,,False
+related_events,id,string,id,strip.,,False
+related_events,related_id,string,related_events,explode de la lista JSON; una fila por relación.,,False
+related_events,related_index,Int64,related_events + id,Join de related_id contra id dentro del partido; nulo si no se encuentra.,,False
+tactics_lineup,match_id,Int64,match_id,Llave.,,False
+tactics_lineup,index,Int64,index,Llave junto con match_id.,,False
+tactics_lineup,team_id,Int64,team.id,Int64.,,False
+tactics_lineup,tactics_formation,Int64,tactics.formation,Float por los vacíos -> Int64.,,False
+tactics_lineup,jersey_number,Int64,tactics.lineup[].jersey_number,explode de la lista JSON.,,False
+tactics_lineup,player_id,Int64,tactics.lineup[].player.id,explode.,,False
+tactics_lineup,player_name,string,tactics.lineup[].player.name,strip.,,False
+tactics_lineup,position_id,Int64,tactics.lineup[].position.id,Int64.,,False
+tactics_lineup,position_name,category,tactics.lineup[].position.name,strip.,,False
+defensive_responsibility,match_id,Int64,match_id,Llave.,,False
+defensive_responsibility,index,Int64,index,Llave junto con match_id.,,False
+defensive_responsibility,player_id,Int64,defensive_responsibility.players[].player_id,explode de la lista JSON.,,False
+defensive_responsibility,probability,float64,defensive_responsibility.players[].probability,Sin cambios.,,False
+defensive_responsibility,interception_like_probability,float64,defensive_responsibility.players[].interception_like_probability,Nulo legítimo; no imputar.,,False
+defensive_responsibility,pressure_like_probability,float64,defensive_responsibility.players[].pressure_like_probability,Nulo legítimo; no imputar.,,False
+shot_freeze_frame,match_id,Int64,match_id,Llave.,,False
+shot_freeze_frame,index,Int64,index,Llave junto con match_id.,,False
+shot_freeze_frame,jugador_idx,Int64,posición en la lista,explode con contador desde 0.,,False
+shot_freeze_frame,teammate,boolean,shot.freeze_frame[].teammate,Sin cambios.,,False
+shot_freeze_frame,player_id,Int64,shot.freeze_frame[].player.id,Int64.,,False
+shot_freeze_frame,player_name,string,shot.freeze_frame[].player.name,strip.,,False
+shot_freeze_frame,position_id,Int64,shot.freeze_frame[].position.id,Int64.,,False
+shot_freeze_frame,position_name,category,shot.freeze_frame[].position.name,strip.,,False
+shot_freeze_frame,x,float64,shot.freeze_frame[].location,"Se separa [x, y].",,False
+shot_freeze_frame,y,float64,shot.freeze_frame[].location,"Se separa [x, y].",,False
