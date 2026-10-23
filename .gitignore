@@ -57,5 +57,7 @@ archivo/
 .playwright-mcp/
 shot-*.png
 Docs_API/
+# HTML del reporte (fase 5): pesa varios MB, cambia en cada corrida y se comparte por el Drive
+reporte/
 # Excepcion: esquema del contrato de datos (nombres y tipos de columna, sin datos)
-!docs/contrato_datos.csv
+!docs/contrato/contrato_datos.csv
