@@ -4,9 +4,9 @@ Contexto del repo para quien trabaje en él, sea persona o agente de IA. Todo es
 
 ## Qué es este repo
 
-Es el código del equipo para el Hackathon ITAM + Club América: un análisis táctico de André Jardine con el América (`manager_id` 1000116, `team_id` 1229), del Apertura 2023 al Clausura 2025. Son 91 partidos: 66 de fase regular y 25 de liguilla, de los cuales 8 son finales (2 por torneo). Los datos son de Hudl StatsBomb (eventos y 360). El grupo de contraste son Fernando Ortiz y Santiago Solari, también del América.
+Es el código del equipo para el Hackathon ITAM + Club América: un análisis táctico de André Jardine con el América (`manager_id` 1000116, `team_id` 1229), del Apertura 2023 al Clausura 2025. Son 91 partidos: 66 de fase regular y 25 de liguilla, de los cuales 8 son finales (2 por torneo). Los datos son de Hudl StatsBomb (eventos y 360). Se planeó un grupo de contraste con Fernando Ortiz y Santiago Solari, también del América, pero quedó fuera de la entrega.
 
-La entrega es el jueves 22 de octubre de 2026 por correo. El análisis se congela el miércoles 21: la meta original era el martes 20 y el equipo la movió un día.
+La entrega fue el jueves 22 de octubre de 2026 por correo; el análisis se congeló el miércoles 21. El resultado está en `entrega/` y el resumen para quien recibe el repo, en `README.md`.
 
 ## Equipo y ramas
 
@@ -62,22 +62,33 @@ Estilo de trabajo:
 | `docs/spec_03_tabla_analitica.md` | Especificación de la tabla analítica: columnas y de dónde sale cada una, insumos, validaciones y criterios de aceptación. |
 | `scripts/04_contexto.py` | Fase 4. Compara cada métrica entre los niveles de seis contextos (marcador, localía, fuerza del rival, minuto, fase y superioridad numérica), con IC por bootstrap de partidos. Escribe `data/processed/`. |
 | `docs/spec_04_contexto.md` | Especificación de las métricas por contexto: salidas, estadística, lecturas, cómo agregar una métrica y criterios de aceptación. |
-| `requirements.txt` | `pandas==3.0.5`, `pyarrow==26.0.0`, `requests==2.33.1`. |
+| `scripts/03_ataque.py`, `scripts/03_defensa.py`, `scripts/03_jugadores.py` | Fase 3. Métricas de ataque, de defensa y balón parado, y de jugadores (rotación, formaciones y cambios). Escriben `data/processed/`. |
+| `scripts/04_patrones.py` | Fase 4. Agrupa las posesiones del América en patrones, mide su consistencia entre partidos y su tendencia por jornada. Escribe `data/processed/`. |
+| `scripts/graficas.py`, `scripts/Cambio_Partidos.py` | Figuras del reporte: 13 por torneo y las de contexto en cancha (los 91 partidos y cada torneo). Las dos aceptan `--salida <carpeta>`. |
+| `scripts/05_reporte_html.py` | Fase 5. Arma el reporte HTML desde `data/processed/`, las figuras (`--figuras`), los textos de `docs/reporte_textos/`, el framework y los logos (`--recursos`). Escribe `reporte/`. |
+| `scripts/06_reporte_pdf.py` | Imprime el HTML a PDF con Chrome, con el mismo formato de escritorio; con `--entrega` copia los dos a `entrega/`. |
+| `scripts/*.md` | Framework analítico: definiciones, supuestos, restricciones, decisiones de limpieza, jugadores y métricas finales. El reporte lee de aquí sus definiciones. |
+| `docs/spec_03_defensa.md`, `docs/spec_05_reporte_html.md` | Especificación de las métricas de defensa y del reporte (HTML y PDF). |
+| `docs/reporte_textos/` | Textos del reporte en Markdown, uno por espacio; `LEEME.md` dice dónde va cada uno. |
+| `entrega/` | Reporte final: `reporte_jardine_america.html` y `reporte_jardine_america.pdf`. |
+| `README.md` | Entrada al repo para quien lo recibe. |
+| `requirements.txt` | `pandas==3.0.5`, `pyarrow==26.0.0`, `requests==2.33.1` y `pillow==12.3.0`. |
 | `data/` | Local e ignorado por git. `data/raw/` (caché JSON y `parquet/`), `data/interim/` (tablas limpias), `data/processed/` (tablas de las fases 3 y 4, también las de Lee, Pablo y Pato; `LEEME_versiones.md` dice de qué script y commit sale cada una), `data/diccionario.json` (lo lee `gen_contrato.py`). |
 
 Fuera del repo, en la carpeta `Local` del equipo:
 
 - `Plan_de_trabajo_Kpumas.md`: el plan. Las secciones 7.1 a 7.3 definen la limpieza; la 12 y la 14 dan el calendario y el reparto por fase.
 - `METRICAS_LEE.md`: la especificación de métricas de Lee (34 fichas). La sección 1 reúne las convenciones comunes. Las mismas fichas llegan al repo en `especificaciones_metricas/`, por la rama de Lee.
-- `ARCHIVOS_PATO/framework/`: el framework de Pato (definiciones, restricciones, decisiones de limpieza, jugadores y las 8 métricas finales en `05_metricas_finales.md`). Llega al repo por la rama `D/narrativa`.
+- `ARCHIVOS_PATO/framework/`: copia de trabajo del framework que está en `scripts/*.md`.
+- `ARCHIVOS_YORDI/figuras_pablo/` y `ARCHIVOS_YORDI/LOGOS/web/`: las carpetas que usa el reporte por defecto para `--figuras` y `--recursos`.
 
-En esta rama están `scripts/03_contexto.py` y `scripts/03_tabla_analitica.py` de la fase 3, y `scripts/04_contexto.py` de la fase 4. `03_ataque.py` está en la rama `B/metricas` (Lee), `03_defensa.py` en `C/visualizacion` (Pablo) y `03_jugadores.py` en `D/narrativa` (Pato); `03_tabla_analitica.py` solo necesita sus parquet en `data/processed/`. `graficas.py` todavía no está en ninguna rama. Por la rama de Lee llegan `scripts/02_auxiliares.py`, que arma las 4 tablas auxiliares del contrato desde los eventos crudos (se corre después de `02_limpieza.py` con `python scripts/02_auxiliares.py`), y dos scripts de revisión, `control_calidad.py` y `gen_reporte_nulos.py`, que escriben CSV en `data/interim/`.
+Desde la fusión del 22 de octubre, `main` tiene los scripts de las cuatro ramas. Además de los de la tabla, están `scripts/02_auxiliares.py`, que arma las 4 tablas auxiliares del contrato desde los eventos crudos (se corre después de `02_limpieza.py`), y dos scripts de revisión, `control_calidad.py` y `gen_reporte_nulos.py`, que escriben CSV en `data/interim/`.
 
 ## Cómo correr el pipeline
 
 Instala con `pip install -r requirements.txt` y corre todo desde la raíz del repo.
 
-El orden es `01_descarga.py`, `02_limpieza.py` y `03_contexto.py`; después `03_ataque.py`, `03_defensa.py` y `03_jugadores.py`, en cualquier orden entre ellos; luego `03_tabla_analitica.py` y al final `04_contexto.py`.
+El orden es `01_descarga.py`, `02_limpieza.py`, `02_auxiliares.py` y `03_contexto.py`; después `03_ataque.py`, `03_defensa.py` y `03_jugadores.py`, en cualquier orden entre ellos; luego `03_tabla_analitica.py`, `04_contexto.py` y `04_patrones.py`. Con las tablas listas se generan las figuras (`graficas.py --salida <carpeta>` y `Cambio_Partidos.py --salida <carpeta>`) y al final el reporte: `05_reporte_html.py --figuras <carpeta>` y `06_reporte_pdf.py --entrega`. Los argumentos del reporte y del PDF están en `docs/spec_05_reporte_html.md`.
 
 ### Descarga
 
@@ -268,29 +279,15 @@ assert_frame_equal(antes, despues)   # falla si cambia una columna, un tipo o un
 6. Métricas por contexto: `python scripts/04_contexto.py --sin-escribir` debe terminar con código 0.
 7. Tabla analítica: `python scripts/03_tabla_analitica.py --sin-escribir` debe terminar con código 0.
 
-## Estado y siguiente fase
+## Estado
 
-Estado al 20 de octubre de 2026:
+Estado al 22 de octubre de 2026, día de la entrega:
 
-- Fase 1 (descarga): cerrada.
-- Fase 2 (limpieza): terminada por Yordi. Hay 9 tablas en `data/interim/`, 0 duplicados, 0 huérfanos y 89.3% de los eventos con frame 360.
-- Contrato v0.2 con 21 decisiones: 17 resueltas y 4 abiertas, todas de Lee (C4, C7, C11 y C20). Tienen un default vigente y falta que Lee las confirme.
-- Lee entregó la especificación de métricas: 34 fichas, que llegan al repo en `especificaciones_metricas/`.
-- Fase 3: `03_contexto.py` está terminado. Sus cuatro tablas pasan las validaciones con los 91 partidos.
-- Tabla analítica: `03_tabla_analitica.py` (Yordi) junta el contexto con las tablas de Lee, Pablo y Pato. Sus dos tablas pasan las validaciones.
-- Fase 4: `04_contexto.py` (tarea 14.6, Yordi) compara 26 métricas por contexto: 16 de las tablas de contexto, 6 de ataque de Lee y 4 de defensa de Pablo. Sus dos tablas pasan las validaciones y cuadran con las cifras de la fase 3.
-- Las tablas de Lee, Pablo y Pato se comparten por el Drive. Las de Pablo y Pato las generó Yordi el 20 de octubre con el script de su rama, sin cambios.
-- `dev` sigue en el commit del 17 de octubre: todavía no se fusiona ninguna rama de las fases 2 a 4.
-
-Fase 3, del lunes 19 de octubre:
-
-| Script | Responsable | Estado |
-| :--- | :--- | :--- |
-| `scripts/03_contexto.py` | Yordi | Terminado |
-| `scripts/03_tabla_analitica.py` | Yordi | Terminado |
-| `scripts/03_ataque.py` | Lee | En la rama `B/metricas` |
-| `scripts/03_defensa.py` | Pablo | En la rama `C/visualizacion` |
-| `scripts/03_jugadores.py` | Pato | En la rama `D/narrativa` |
+- Fases 1 a 5 terminadas: descarga, limpieza (9 tablas en `data/interim/`, 0 duplicados, 0 huérfanos, 89.3% de los eventos con frame 360), contexto y métricas, comparaciones por contexto y patrones, y reporte.
+- El reporte final está en `entrega/`, en HTML y en PDF. Lo arman `05_reporte_html.py` y `06_reporte_pdf.py`; pasa sus revisiones con `--estricto` (credenciales, datos crudos, recursos externos, anclas y trazabilidad de cada figura y tabla a su definición en el marco).
+- Las cuatro ramas se fusionan a `dev` y `dev` a `main` para la entrega.
+- Contrato v0.2 con 21 decisiones: C4, C7, C11 y C20 quedaron con su valor por defecto.
+- Quedó fuera el grupo de contraste con Fernando Ortiz y Santiago Solari, y unificar el idioma de las columnas.
 
 ## Ver también
 
@@ -299,3 +296,5 @@ Fase 3, del lunes 19 de octubre:
 - `docs/spec_03_contexto.md`: columnas, reglas y validaciones del contexto.
 - `docs/spec_03_tabla_analitica.md`: columnas, insumos y validaciones de la tabla analítica.
 - `docs/spec_04_contexto.md`: salidas, estadística, lecturas y validaciones de las métricas por contexto.
+- `docs/spec_05_reporte_html.md`: estructura, revisiones y argumentos del reporte HTML y del PDF.
+- `README.md`: resumen para quien recibe el repo.
