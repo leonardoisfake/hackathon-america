@@ -63,6 +63,8 @@ CALIDAD_WEBP = 80
 META_MB = 8
 LIMITE_MB = 18
 MAX_FILAS_TABLA = 400
+PAGINA_PDF = (1280, 1810)  # px: ancho de escritorio con proporcion A4; la impresora lo ajusta a Carta
+MARGEN_PDF = 48  # px arriba y abajo en las paginas que no son la portada
 ID_T51 = "t5-1-tabla"  # T5.1 tiene una fila por comparacion; se compara contra len(comps), no contra el limite
 NUM = ' class="num"'  # celda numerica: alineada a la derecha y con cifras tabulares
 TOL_CUADRE_XG = 0.5
@@ -1837,7 +1839,9 @@ class Reporte:
             f'data-lectura-et="{esc(let)}">' + "".join(f'<td{NUM if i in num else ""}>{v}</td>'
                                                      for i, v in enumerate(celdas)) + "</tr>"
             for ctx, lec, cet, let, celdas in filas)
-        return (f'<details class="pliegue" id="{ancla}"><summary><span class="codigo">{cod}</span> Las '
+        solo_pdf = (f'<p class="nota solo-impresion">{cod}, con las {entero(len(comps))} comparaciones y sus filtros, '
+                    f'no va en el PDF: está en el reporte HTML.</p>')
+        return solo_pdf + (f'<details class="pliegue" id="{ancla}"><summary><span class="codigo">{cod}</span> Las '
                 f'{entero(len(comps))} comparaciones</summary><p class="nota">Una fila por métrica, contexto, '
                 f'nivel y ajuste. Diferencia en la unidad de la métrica (pp: puntos porcentuales). n. d.: sin IC, '
                 f'porque alguna de las dos celdas tiene menos de {self.d.p04["MIN_PARTIDOS_IC"]} partidos. Partidos: '
@@ -2250,8 +2254,8 @@ code{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:.88em
 .muesca{position:absolute;left:0;bottom:0;height:5px;width:0;background:var(--amarillo);opacity:0;transition:transform 150ms ease-out,width 150ms ease-out,opacity 150ms ease-out;pointer-events:none}
 .barra-actual,.barra-boton{display:none}
 @media (prefers-reduced-motion:reduce){.muesca{transition:none}}
-@media (max-width:1239px){.lista-puertas a{padding:0 12px;justify-content:center}.lista-puertas a span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
-@media (max-width:859px){
+@media screen and (max-width:1239px){.lista-puertas a{padding:0 12px;justify-content:center}.lista-puertas a span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+@media screen and (max-width:859px){
  html:not(.js) body{padding-top:0}
  html:not(.js) .barra{position:static;height:auto}
  html:not(.js) .barra-dentro{flex-wrap:wrap;padding:0 12px}
@@ -2313,7 +2317,7 @@ code{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:.88em
 .referencias{margin:0;padding-left:20px;max-width:72ch}
 .referencias li{margin:0 0 var(--esp-2);overflow-wrap:anywhere}
 /* en escritorio la portada completa cabe en la primera vista: la tipografia grande y los espacios bajan con la altura */
-@media (min-width:1240px){
+@media screen and (min-width:1240px),print{
  .portada{--aire-portada:clamp(16px,3vh,28px);padding-top:var(--aire-portada)}
  /* la tarjeta llena la primera vista con el mismo aire arriba y abajo; tope para monitores muy altos */
  .boleto{min-height:min(calc(100vh - var(--barra) - 2 * var(--aire-portada)),900px)}
@@ -2335,7 +2339,7 @@ code{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:.88em
  .talon-nota{margin-top:clamp(10px,1.6vh,16px);font-size:13px;line-height:1.45}
  .talon-pie{padding-top:clamp(10px,1.8vh,20px);line-height:1.45}
 }
-@media (max-width:1239px){
+@media screen and (max-width:1239px){
  .boleto{grid-template-columns:1fr;min-height:0}
  .boleto-cuerpo{padding:40px 40px 32px}
  .foto-img{height:clamp(300px,44vw,500px)}
@@ -2344,7 +2348,7 @@ code{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:.88em
  .talon::before{top:-17px;left:-15px}.talon::after{top:-17px;bottom:auto;left:auto;right:-15px}
  .talon-pie{margin-top:22px}
 }
-@media (max-width:1023px){
+@media screen and (max-width:1023px){
  .portada{padding:20px 16px 0}
  .boleto-cuerpo{padding:32px 24px}
 }
@@ -2452,9 +2456,9 @@ table.doc thead th{white-space:normal;vertical-align:bottom}
 .alcance{display:grid;grid-template-columns:1fr 1fr;gap:16px 32px}
 .sector .alcance h4{margin:0 0 6px}
 .alcance ul{margin:0;padding-left:20px}
-@media (max-width:719px){.base{line-height:2.3}.base a{display:inline-block;min-height:24px;padding:4px 0}}
+@media screen and (max-width:719px){.base{line-height:2.3}.base a{display:inline-block;min-height:24px;padding:4px 0}}
 .sector .alcance li{margin:4px 0}
-@media (max-width:719px){.alcance{grid-template-columns:minmax(0,1fr)}}
+@media screen and (max-width:719px){.alcance{grid-template-columns:minmax(0,1fr)}}
 .objetos{list-style:none;margin:0 0 20px;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
 .sector .objetos li{max-width:none;margin:0}
 .objeto{height:100%;display:flex;flex-direction:column;padding:20px;border:1px solid var(--linea);border-top:5px solid var(--marino);border-radius:var(--radio);background:var(--blanco)}
@@ -2469,7 +2473,7 @@ table.doc thead th{white-space:normal;vertical-align:bottom}
 .objetos.recorrido{grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
 .recorrido li{position:relative}
 .recorrido li + li::before{content:"";position:absolute;left:-25px;top:50%;width:12px;height:12px;border-right:3px solid var(--marino);border-bottom:3px solid var(--marino);transform:translateY(-50%) rotate(-45deg)}
-@media (max-width:859px){.objetos.recorrido{grid-template-columns:minmax(0,1fr);gap:28px}.recorrido li + li::before{left:50%;top:-21px;transform:translateX(-50%) rotate(45deg)}}
+@media screen and (max-width:859px){.objetos.recorrido{grid-template-columns:minmax(0,1fr);gap:28px}.recorrido li + li::before{left:50%;top:-21px;transform:translateX(-50%) rotate(45deg)}}
 /* ritmo vertical: texto y bloques (tablas, figuras, plegables, tarjetas) separados por --esp-4 */
 :is(.sector,.aporte,.hallazgo) > :is(p,ul,ol,dl):not(.nota,.base,.pie,.niveles-et,.recorrido-et) + :is(.tabla-caja,figure,details,.objetos,.alcance,.aporte,.filas-talon),
 :is(.sector,.aporte,.hallazgo) > :is(.tabla-caja,figure,details,.objetos,.alcance,.filas-talon,.niveles) + :is(p,ul,ol):not(.nota,.base,.pie){margin-top:var(--esp-4)}
@@ -2533,7 +2537,7 @@ table.doc thead th{white-space:normal;vertical-align:bottom}
 /* limitaciones */
 .limites{padding-left:20px}
 .limites li{margin:14px 0}
-@media (max-width:719px){
+@media screen and (max-width:719px){
  .hallazgo .fig{margin:16px -8px 12px}
  body{font-size:16px}
  .puerta{padding:56px 12px 0}
@@ -2573,20 +2577,48 @@ table.doc thead th{white-space:normal;vertical-align:bottom}
  .cifra-valor{font-size:60px}
  .puerta{padding-top:48px}
 }
-@media (max-width:600px){
+@media screen and (max-width:600px){
  .filas-talon > div.apilar{flex-direction:column;align-items:flex-start;gap:2px}
  .filas-talon .apilar dd{text-align:left;white-space:normal}
 }
+.solo-impresion{display:none}
+@page{size:__PAG_W__px __PAG_H__px;margin:__MARGEN__px 0}
+@page :first{margin:0}
 @media print{
- .barra,.saltar,[role="tablist"],.filtros,.ampliar-pista{display:none!important}
+ html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ .barra,.saltar,[role="tablist"],.filtros,.ampliar-pista,.visor{display:none!important}
  body{padding-top:0;background:#fff}
+ main{padding-bottom:0}
  .panel[hidden]{display:block!important}
  .con-pestanas .panel-torneo{position:static;width:auto;height:auto;clip:auto}
  details::details-content{content-visibility:visible;display:contents}
- .puerta{padding-top:24px;break-before:page}
  tr[hidden]{display:table-row!important}
+ /* T5.1 (370 filas) no va: queda la nota que dice que esta en el HTML */
+ .solo-impresion{display:block}
+ #t5-1{display:none!important}
+ /* portada: la pagina 1 completa, sin margen de pagina */
+ .portada{height:__PAG_H__px;padding:40px;break-after:page}
+ .boleto{height:100%;min-height:0}
+ .boleto-texto{justify-content:center}
+ .pregunta{margin-top:var(--esp-6)}
+ /* cada puerta en pagina nueva; lo que no se debe partir */
+ .puerta{padding-top:24px;break-before:page}
+ /* las figuras por torneo empiezan pagina: su titulo y su pie no quedan separados de los paneles */
+ .sector > .fig{break-before:page}
+ /* dos paneles por pagina: la imagen se acota en alto y conserva su proporcion */
+ .fig .marco img{max-height:720px;width:auto}  /* el aire evita que la tilde de un titulo caiga en la pagina anterior */
+ .panel,.marco,.objeto,.recorrido,.cifra,.filas-talon,.niveles,.supuestos li,.alcance,figure.tabla,.hallazgo-titular,.letrero,.f-fila,tr{break-inside:avoid}
+ h2,h3,h4,figcaption,.pie,.base,.panel-torneo{break-after:avoid}
+ /* un titulo en mayusculas al inicio de pagina: el relleno deja su tilde en esa pagina (el margen se pierde en el corte) */
+ h2,h3,h4,.hallazgo-titular{padding-top:.25em}
+ thead{display:table-header-group}
+ .ampliar{cursor:default}
 }
 """
+
+# tamaño y margen de la pagina del PDF en el CSS de impresion
+CSS = (CSS.replace("__PAG_W__", str(PAGINA_PDF[0])).replace("__PAG_H__", str(PAGINA_PDF[1]))
+       .replace("__MARGEN__", str(MARGEN_PDF)))
 
 JS = r"""
 (function(){
@@ -2726,7 +2758,7 @@ if(tabla&&caja){
 }
 /* impresion: abre los plegables y muestra todos los torneos */
 var abiertos=[];
-window.addEventListener('beforeprint',function(){abiertos=[].filter.call(d.querySelectorAll('details'),function(x){return !x.open;});abiertos.forEach(function(x){x.open=true;});});
+window.addEventListener('beforeprint',function(){abiertos=[].filter.call(d.querySelectorAll('details'),function(x){return !x.open&&x.id!=='t5-1';});abiertos.forEach(function(x){x.open=true;});});
 window.addEventListener('afterprint',function(){abiertos.forEach(function(x){x.open=false;});abiertos=[];});
 })();
 """
