@@ -179,6 +179,9 @@ RECURSOS = {
     "jardine": Recurso("jardine.webp", "André Jardine con la ropa de entrenamiento del América, de brazos cruzados"),
 }
 # imagenes tomadas de internet: que es, texto del enlace y direccion completa (puerta 9, «Referencias de las imagenes»)
+# enlaces de la portada: el repo publico y el HTML servido por GitHub Pages (rama main, carpeta raiz)
+URL_REPO = "https://github.com/leonardoisfake/hackathon-america"
+URL_HTML = "https://leonardoisfake.github.io/hackathon-america/entrega/reporte_jardine_america.html"
 REFERENCIAS_IMAGENES = [
     ("Fotografía de André Jardine, recortada y sin fondo",
      "img.asmedia.epimg.net/resizer/v2/JDEKGIPHDNF7HE6SDAIWUY442A.jpg",
@@ -1356,7 +1359,7 @@ class Reporte:
 <div><dt>xG por partido</dt><dd>{decimal(c['xg_favor'] / c['n'], 2)} – {decimal(c['xg_contra'] / c['n'], 2)}</dd></div>
 </dl>
 <p class="talon-nota">{esc(NOTA_PENALES)}</p>
-<p class="talon-pie"><span class="autores">{autores}<br><b>{esc(FACULTAD)}</b></span></p>
+<p class="talon-pie"><span class="autores">{autores}<br><b>{esc(FACULTAD)}</b></span><br><span class="enlaces"><span class="solo-impresion">Versión interactiva: <a href="{esc(URL_HTML)}">{esc(URL_HTML.split("//")[1].split("/entrega")[0])}</a></span><span class="solo-impresion">Repositorio:</span><a href="{esc(URL_REPO)}" aria-label="Repositorio en GitHub: {esc(URL_REPO.split("//")[1])}">{esc(URL_REPO.split("//")[1])}</a></span></p>
 </div>
 </div>
 </section>"""
@@ -2313,6 +2316,8 @@ code{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:.88em
 .talon-pie{margin:auto 0 0;padding-top:20px;font-size:13px;line-height:1.6;color:var(--claro-1);border-top:1px solid var(--borde-marino)}
 .talon-pie .autores{font-size:14px;color:var(--blanco)}
 .talon-pie .autores b{font-weight:600;color:var(--amarillo)}
+.talon-pie .enlaces{display:inline-block;margin-top:var(--esp-1);font-size:12px;overflow-wrap:anywhere}
+.talon-pie .enlaces a{display:block;color:var(--claro-2)}
 /* referencias de las imagenes (puerta 9): el enlace largo de la foto se parte en el celular */
 .referencias{margin:0;padding-left:20px;max-width:72ch}
 .referencias li{margin:0 0 var(--esp-2);overflow-wrap:anywhere}
@@ -2601,6 +2606,10 @@ table.doc thead th{white-space:normal;vertical-align:bottom}
  .boleto{height:100%;min-height:0}
  .boleto-texto{justify-content:center}
  .pregunta{margin-top:var(--esp-6)}
+ /* en la hoja vertical la foto y los autores van un poco mas grandes que en pantalla */
+ .foto-img{height:620px}
+ .talon-pie .autores{font-size:17px;line-height:1.5}
+ .talon-pie .enlaces{font-size:14px;margin-top:var(--esp-2)}
  /* cada puerta en pagina nueva; lo que no se debe partir */
  .puerta{padding-top:24px;break-before:page}
  /* las figuras por torneo empiezan pagina: su titulo y su pie no quedan separados de los paneles */

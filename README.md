@@ -16,7 +16,7 @@ La pregunta del reto: ¿qué principios definen al equipo en ofensiva y en defen
 
 El reporte está en la carpeta `entrega/`:
 
-- `entrega/reporte_jardine_america.html`: versión interactiva, con pestañas por temporada.
+- `entrega/reporte_jardine_america.html`: versión interactiva, con pestañas por temporada. También se puede abrir en línea: https://leonardoisfake.github.io/hackathon-america/entrega/reporte_jardine_america.html
 - `entrega/reporte_jardine_america.pdf`: versión en PDF.
 
 ## Estructura del repo
